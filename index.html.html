@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Family Hierarchy Chart</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Custom SVG components for consistent styling.
+        const Plus = ({ size }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14" />
+                <path d="M12 5v14" />
+            </svg>
+        );
+
+        const Minus = ({ size }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14" />
+            </svg>
+        );
+
+        const ChevronRight = ({ size }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        );
+        const ChevronLeft = ({ size }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        );
+        const X = ({ size }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18M6 6l12 12"></path>
+          </svg>
+        );
+        const Heart = ({ size }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>
+        );
+        const Male = ({ size }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="18" r="3"></circle>
+            <path d="M12 15v-6M18 9h-3M9 9h-3"></path>
+          </svg>
+        );
+        const Female = ({ size }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="6" r="3"></circle>
+            <path d="M12 9v9M15 15h-6"></path>
+          </svg>
+        );
+
+        const HorizontalCardsIcon = ({ size, onClick, isCarouselMode }) => (
+            <svg onClick={onClick} className="cursor-pointer" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 17H2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2z" stroke={isCarouselMode ? "#4F46E5" : "currentColor"}/>
+                <path d="M22 7H2a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" stroke={isCarouselMode ? "#4F46E5" : "currentColor"}/>
+            </svg>
+        );
+        
+        // A simple modal component to replace window.confirm
+        const ConfirmModal = ({ isOpen, onConfirm, onCancel, message }) => {
+            if (!isOpen) return null;
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900 bg-opacity-50 backdrop-blur-sm">
+                    <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full text-center">
+                        <p className="text-gray-700 font-semibold mb-4">{message}</p>
+                        <div className="flex justify-center space-x-4">
+                            <button
+                                onClick={onConfirm}
+                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
+                            >
+                                Yes, remove
+                            </button>
+                            <button
+                                onClick={onCancel}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Default family data
+        const defaultFamilyData = [
+            { id: 1, name: "Grandpa Robert", reportsTo: null, isExpanded: true, isCarouselMode: false, spouseName: "Grandma Jane", gender: 'male' },
+            { id: 2, name: "Grandma Alice", reportsTo: 1, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'female' },
+            { id: 3, name: "Son Michael", reportsTo: 1, isExpanded: true, isCarouselMode: false, spouseName: "Wife Jessica", gender: 'male' },
+            { id: 4, name: "Daughter Emily", reportsTo: 2, isExpanded: true, isCarouselMode: false, spouseName: "Husband David", gender: 'female' },
+            { id: 5, name: "Grandchild Ethan", reportsTo: 3, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'male' },
+            { id: 6, name: "Grandchild Olivia", reportsTo: 3, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'female' },
+            { id: 7, name: "Grandchild Liam", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'male' },
+            { id: 8, name: "Grandchild Noah", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'male' },
+            { id: 9, name: "Cousin A", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'male' },
+            { id: 10, name: "Cousin B", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'female' },
+            { id: 11, name: "Cousin C", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'male' },
+            { id: 12, name: "Cousin D", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'female' },
+        ];
+
+        // Main App component
+        function App() {
+            const [familyData, setFamilyData] = React.useState(() => {
+                const savedData = localStorage.getItem('familyTreeData');
+                return savedData ? JSON.parse(savedData) : defaultFamilyData;
+            });
+            const [svgLines, setSvgLines] = React.useState([]);
+            const nodeRefs = React.useRef({});
+            const containerRef = React.useRef(null);
+            const [showConfirmModal, setShowConfirmModal] = React.useState(false);
+            const [memberToRemoveId, setMemberToRemoveId] = React.useState(null);
+
+            // Save data to localStorage whenever it changes
+            React.useEffect(() => {
+                localStorage.setItem('familyTreeData', JSON.stringify(familyData));
+            }, [familyData]);
+            
+            const handleSave = () => {
+                localStorage.setItem('familyTreeData', JSON.stringify(familyData));
+                alert('Family tree saved!');
+            };
+            
+            const handleLoad = () => {
+                const savedData = localStorage.getItem('familyTreeData');
+                if (savedData) {
+                    setFamilyData(JSON.parse(savedData));
+                    alert('Family tree loaded!');
+                } else {
+                    alert('No saved data found.');
+                }
+            };
+            
+            const handleAddMember = (parentId, newName = "", gender) => {
+                const newId = Math.max(...familyData.map(member => member.id)) + 1;
+                const newMember = { id: newId, name: newName, reportsTo: parentId, isExpanded: true, isCarouselMode: false, spouseName: "", gender };
+                setFamilyData(prevData => [...prevData, newMember]);
+            };
+            
+            const handleNameChange = (id, newName) => {
+                setFamilyData(prevData => prevData.map(member => member.id === id ? { ...member, name: newName } : member));
+            };
+            
+            const handleSpouseNameChange = (id, newSpouseName) => {
+                setFamilyData(prevData => prevData.map(member => member.id === id ? { ...member, spouseName: newSpouseName } : member));
+            };
+
+            const handleToggleExpand = (id) => {
+                setFamilyData(prevData => prevData.map(member => 
+                    member.id === id ? { ...member, isExpanded: !member.isExpanded, activeIndex: 0 } : member
+                ));
+            };
+            
+            const handleToggleCarousel = (id) => {
+                setFamilyData(prevData => prevData.map(member => 
+                    member.id === id ? { ...member, isCarouselMode: !member.isCarouselMode, activeIndex: 0 } : member
+                ));
+            };
+            
+            const handleSetActiveIndex = (id, newIndex) => {
+                setFamilyData(prevData => prevData.map(member =>
+                    member.id === id ? { ...member, activeIndex: newIndex } : member
+                ));
+            }
+            
+            const removeDescendants = (id, data) => {
+                const directChildren = data.filter(member => member.reportsTo === id);
+                let updatedData = data.filter(member => member.id !== id);
+                for (const child of directChildren) {
+                    updatedData = removeDescendants(child.id, updatedData);
+                }
+                return updatedData;
+            };
+
+            const handleRemoveMember = (idToRemove) => {
+                setMemberToRemoveId(idToRemove);
+                setShowConfirmModal(true);
+            };
+            
+            const confirmRemove = () => {
+                if (memberToRemoveId !== null) {
+                    const updatedData = removeDescendants(memberToRemoveId, familyData);
+                    setFamilyData(updatedData);
+                    setMemberToRemoveId(null);
+                    setShowConfirmModal(false);
+                }
+            };
+
+            const cancelRemove = () => {
+                setMemberToRemoveId(null);
+                setShowConfirmModal(false);
+            };
+
+            const buildTree = (data, reportsTo = null, generation = 1) => {
+                const children = data.filter(member => member.reportsTo === reportsTo);
+                children.sort((a, b) => a.id - b.id); // Sort children by ID for ascending order
+                return children.map(member => ({
+                    ...member,
+                    generation: generation,
+                    children: buildTree(data, member.id, generation + 1),
+                }));
+            };
+
+            const familyTree = buildTree(familyData, null);
+
+            const getGenerationColor = (generation) => {
+                const colors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-orange-500', 'bg-purple-500', 'bg-teal-500'];
+                return colors[(generation - 1) % colors.length];
+            };
+
+            const renderLines = () => {
+                const lines = [];
+                if (!containerRef.current) return;
+                const containerRect = containerRef.current.getBoundingClientRect();
+                
+                Object.values(nodeRefs.current).forEach(parentRef => {
+                    if (!parentRef) return;
+                    
+                    const parentId = parseInt(parentRef.dataset.id);
+                    const parentMember = familyData.find(m => m.id === parentId);
+                    const isExpanded = parentMember?.isExpanded;
+                    
+                    const children = isExpanded ? familyData.filter(member => member.reportsTo === parentId) : [];
+                    if (children.length === 0) return;
+
+                    const parentRect = parentRef.getBoundingClientRect();
+                    const parentCenterX = parentRect.x + parentRect.width / 2 - containerRect.x;
+                    const parentBottomY = parentRect.bottom - containerRect.y;
+
+                    const isCarouselMode = parentMember?.isCarouselMode;
+                    const childRefs = children.map(child => nodeRefs.current[child.id]);
+                    const childRects = childRefs.map(childRef => childRef?.getBoundingClientRect()).filter(Boolean);
+
+                    if (!isCarouselMode) {
+                        const firstChildRect = childRects[0];
+                        if(!firstChildRect) return;
+                        const horizontalLineY = firstChildRect.y - containerRect.y - 12;
+
+                        lines.push(<path key={`v-${parentId}`} d={`M ${parentCenterX} ${parentBottomY} L ${parentCenterX} ${horizontalLineY}`} stroke="#9ca3af" strokeWidth="2" fill="none" />);
+
+                        if (childRects.length > 1) {
+                            const startChildX = childRects[0].x + childRects[0].width / 2 - containerRect.x;
+                            const endChildX = childRects[childRects.length - 1].x + childRects[childRects.length - 1].width / 2 - containerRect.x;
+                            lines.push(<path key={`h-${parentId}`} d={`M ${startChildX} ${horizontalLineY} L ${endChildX} ${horizontalLineY}`} stroke="#9ca3af" strokeWidth="2" fill="none" />);
+                        }
+                        
+                        childRects.forEach((childRect, index) => {
+                            const childX = childRect.x + childRect.width / 2 - containerRect.x;
+                            const childTopY = childRect.y - containerRect.y;
+                            lines.push(<path key={`vc-${children[index].id}`} d={`M ${childX} ${horizontalLineY} L ${childX} ${childTopY}`} stroke="#9ca3af" strokeWidth="2" fill="none" />);
+                        });
+                    } else { // Carousel mode
+                        const activeIndex = parentMember.activeIndex || 0;
+                        const displayedChild = children[activeIndex];
+                        if (!displayedChild) return;
+                        const childRef = nodeRefs.current[displayedChild.id];
+                        if (!childRef) return;
+
+                        const childRect = childRef.getBoundingClientRect();
+                        const childCenterX = childRect.x + childRect.width / 2 - containerRect.x;
+                        const childTopY = childRect.y - containerRect.y;
+
+                        lines.push(
+                            <path
+                                key={`line-${parentId}-${displayedChild.id}`}
+                                d={`M ${parentCenterX} ${parentBottomY} L ${parentCenterX} ${childTopY - 12} L ${childCenterX} ${childTopY - 12} L ${childCenterX} ${childTopY}`}
+                                stroke="#9ca3af"
+                                strokeWidth="2" fill="none"
+                            />
+                        );
+                    }
+                });
+
+                setSvgLines(lines);
+            };
+            
+            React.useEffect(() => {
+                renderLines();
+                window.addEventListener('resize', renderLines);
+                return () => window.removeEventListener('resize', renderLines);
+            }, [familyData]);
+            
+            return (
+                <div className="bg-gray-100 min-h-screen p-4 sm:p-8 font-sans antialiased relative">
+                    <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-2xl p-6 relative" ref={containerRef}>
+                        <div className="flex flex-col sm:flex-row items-center justify-between mb-6">
+                            <h1 className="text-3xl font-bold text-gray-800 text-center sm:text-left mb-4 sm:mb-0">Family Hierarchy Chart</h1>
+                            <div className="flex space-x-2">
+                                <button
+                                    onClick={handleSave}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    onClick={handleLoad}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+                                >
+                                    Load
+                                </button>
+                            </div>
+                        </div>
+                        <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
+                            <defs>
+                                <marker id="arrowhead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#9ca3af" />
+                                </marker>
+                            </defs>
+                            {svgLines.map(line => {
+                                const newPath = React.cloneElement(line, { markerEnd: "url(#arrowhead)" });
+                                return newPath;
+                            })}
+                        </svg>
+                        <div className="flex flex-col items-center">
+                            {familyTree.length > 0 ? (
+                                familyTree.map(member => (
+                                    <TreeNode
+                                        key={member.id}
+                                        member={member}
+                                        onAdd={handleAddMember}
+                                        onRemove={handleRemoveMember}
+                                        onNameChange={handleNameChange}
+                                        onSpouseNameChange={handleSpouseNameChange}
+                                        onToggleExpand={handleToggleExpand}
+                                        onToggleCarousel={handleToggleCarousel}
+                                        onSetActiveIndex={handleSetActiveIndex}
+                                        getGenerationColor={getGenerationColor}
+                                        nodeRefs={nodeRefs}
+                                    />
+                                ))
+                            ) : (
+                                <p className="text-gray-500">No family members to display.</p>
+                            )}
+                        </div>
+                    </div>
+                    <ConfirmModal
+                        isOpen={showConfirmModal}
+                        onConfirm={confirmRemove}
+                        onCancel={cancelRemove}
+                        message="Are you sure you want to remove this person and all their descendants?"
+                    />
+                </div>
+            );
+        }
+
+        // Recursive component to render each node in the tree.
+        function TreeNode({ member, onAdd, onRemove, onNameChange, onSpouseNameChange, onToggleExpand, onToggleCarousel, onSetActiveIndex, getGenerationColor, nodeRefs }) {
+            const [isNameEditing, setIsNameEditing] = React.useState(false);
+            const [isSpouseEditing, setIsSpouseEditing] = React.useState(false);
+            const childrenWrapperRef = React.useRef(null);
+            
+            const handlePrevChild = () => {
+                onSetActiveIndex(member.id, Math.max(0, member.activeIndex - 1));
+            };
+
+            const handleNextChild = () => {
+                onSetActiveIndex(member.id, Math.min(member.children.length - 1, member.activeIndex + 1));
+            };
+
+            // Local state to manage input values during editing
+            const [editedName, setEditedName] = React.useState(member.name);
+            const [editedSpouseName, setEditedSpouseName] = React.useState(member.spouseName);
+            
+            React.useEffect(() => {
+              setEditedName(member.name);
+              setEditedSpouseName(member.spouseName);
+            }, [member.name, member.spouseName]);
+            
+            const nameInputRef = React.useRef(null);
+            const spouseInputRef = React.useRef(null);
+
+            React.useEffect(() => {
+                if (isNameEditing && nameInputRef.current) {
+                    nameInputRef.current.focus();
+                }
+            }, [isNameEditing]);
+
+            React.useEffect(() => {
+                if (isSpouseEditing && spouseInputRef.current) {
+                    spouseInputRef.current.focus();
+                }
+            }, [isSpouseEditing]);
+
+            const getGenderBoxColor = (gender) => {
+                if (gender === 'male') {
+                    return 'bg-sky-200';
+                } else if (gender === 'female') {
+                    return 'bg-pink-200';
+                }
+                return 'bg-gray-200';
+            };
+            
+            const getGenderTextColor = (gender) => {
+                if (gender === 'male') {
+                    return 'text-sky-800';
+                } else if (gender === 'female') {
+                    return 'text-pink-800';
+                }
+                return 'text-gray-800';
+            };
+
+            const handleNameBlur = (e) => {
+                onNameChange(member.id, editedName);
+                setIsNameEditing(false);
+            };
+
+            const handleSpouseNameBlur = (e) => {
+                onSpouseNameChange(member.id, editedSpouseName);
+                setIsSpouseEditing(false);
+            };
+
+            const handleAddSpouse = () => onSpouseNameChange(member.id, "New Spouse");
+            const handleRemoveSpouse = () => {
+                onSpouseNameChange(member.id, '');
+            };
+            
+            const hasSpouse = !!member.spouseName;
+            const hasChildren = member.children && member.children.length > 0;
+            const cardColor = getGenerationColor(member.generation);
+            const genderBoxColor = getGenderBoxColor(member.gender);
+            const genderTextColor = getGenderTextColor(member.gender);
+            const children = member.children || [];
+            
+            const isCarouselMode = member.isCarouselMode;
+            const displayedChild = hasChildren && member.activeIndex !== undefined ? children[member.activeIndex] : null;
+            const showPrevButton = member.activeIndex > 0;
+            const showNextButton = member.activeIndex < children.length - 1;
+
+            return (
+                <div className="relative flex flex-col items-center">
+                    <div className="p-1 rounded-xl shadow-md border-2 border-gray-300 bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-xl w-32 mx-auto flex flex-col">
+                        <div className={`p-0.5 w-full rounded-t-lg text-white font-bold text-[9px] flex items-center justify-center ${cardColor}`}>
+                            G{member.generation}
+                        </div>
+                        <div className="flex justify-center items-center h-full flex-col p-1">
+                            {/* Main Member and Spouse Card */}
+                            <div
+                                className={`rounded-lg shadow-sm border border-gray-200 w-full mb-1 text-center ${genderBoxColor}`}
+                                ref={el => nodeRefs.current[member.id] = el}
+                                data-id={member.id}
+                            >
+                                <div className="flex items-center w-full">
+                                    {isNameEditing ? (
+                                        <input
+                                            type="text"
+                                            ref={nameInputRef}
+                                            className={`flex-grow text-[10px] font-semibold p-0.5 text-center focus:outline-none ${genderTextColor}`}
+                                            value={editedName}
+                                            onChange={(e) => setEditedName(e.target.value)}
+                                            onBlur={handleNameBlur}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                                        />
+                                    ) : (
+                                        <span onClick={(e) => {e.stopPropagation(); setIsNameEditing(true);}} className={`flex-grow text-[10px] font-semibold p-0.5 text-center cursor-pointer ${genderTextColor}`}>
+                                            {member.name || "Click to add name"}
+                                        </span>
+                                    )}
+                                </div>
+                                {hasSpouse && (
+                                    <>
+                                        <div className="border-b border-gray-300 mx-1"></div>
+                                        <div className="flex items-center w-full">
+                                            {isSpouseEditing ? (
+                                                <input
+                                                    type="text"
+                                                    ref={spouseInputRef}
+                                                    className={`flex-grow text-[10px] font-semibold p-0.5 text-center focus:outline-none bg-purple-200 text-purple-800`}
+                                                    value={editedSpouseName}
+                                                    onChange={(e) => setEditedSpouseName(e.target.value)}
+                                                    onBlur={handleSpouseNameBlur}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                                                />
+                                            ) : (
+                                                <span onClick={(e) => {e.stopPropagation(); setIsSpouseEditing(true);}} className={`flex-grow text-[10px] font-semibold p-0.5 text-center cursor-pointer bg-purple-200 text-purple-800`}>
+                                                    {member.spouseName}
+                                                </span>
+                                            )}
+                                            <button
+                                                onClick={handleRemoveSpouse}
+                                                className="p-1 text-red-500 rounded-full hover:bg-red-100 transition-colors absolute right-1"
+                                                aria-label="Remove spouse"
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                            
+                            {/* Add Spouse Button */}
+                            {!hasSpouse && (
+                                <button
+                                    onClick={(e) => {e.stopPropagation(); handleAddSpouse();}}
+                                    className="w-full p-1 my-0.5 text-gray-500 rounded-full hover:bg-gray-200 transition-colors"
+                                    aria-label="Add spouse"
+                                >
+                                    <Heart size={14} />
+                                </button>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="flex justify-between w-full mt-1">
+                                <button
+                                    onClick={() => onAdd(member.id, "", "male")}
+                                    className="flex-1 mx-0.5 p-1 text-gray-500 rounded-full hover:bg-gray-200 transition-colors"
+                                    aria-label="Add son"
+                                >
+                                    <Male size={14} />
+                                </button>
+                                <button
+                                    onClick={() => onAdd(member.id, "", "female")}
+                                    className="flex-1 mx-0.5 p-1 text-gray-500 rounded-full hover:bg-gray-200 transition-colors"
+                                    aria-label="Add daughter"
+                                >
+                                    <Female size={14} />
+                                </button>
+                                <button
+                                    onClick={() => onRemove(member.id)}
+                                    className="flex-1 mx-0.5 p-1 text-red-500 rounded-full hover:bg-red-100 transition-colors"
+                                    aria-label="Remove member"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        </div>
+                        {hasChildren && (
+                            <div className="flex items-center justify-between w-full mt-1 px-1">
+                                {member.isExpanded && children.length > 1 && member.isCarouselMode && (
+                                    <button
+                                        onClick={handlePrevChild} 
+                                        className={`p-1 text-gray-500 rounded-full hover:bg-gray-200 transition-colors ${member.activeIndex === 0 ? 'invisible' : ''}`}
+                                        aria-label="Previous child"
+                                    >
+                                        <ChevronLeft size={16} />
+                                    </button>
+                                )}
+                                {member.isExpanded && children.length > 1 && (
+                                    <button
+                                        onClick={() => onToggleCarousel(member.id)}
+                                        className="p-1 bg-gray-200 text-gray-500 rounded-full shadow-lg hover:bg-gray-300 transition-colors"
+                                        aria-label="Toggle carousel view"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M5 12h14" />
+                                            <path d="M12 5v14" />
+                                        </svg>
+                                    </button>
+                                )}
+                                <button
+                                    onClick={(e) => {e.stopPropagation(); onToggleExpand(member.id)}}
+                                    className="p-1 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+                                    aria-label={member.isExpanded ? 'Collapse' : 'Expand'}
+                                >
+                                    {member.isExpanded ? <Minus size={14} /> : <Plus size={14} />}
+                                </button>
+                                {member.isExpanded && children.length > 1 && member.isCarouselMode && (
+                                    <button
+                                        onClick={handleNextChild} 
+                                        className={`p-1 text-gray-500 rounded-full hover:bg-gray-200 transition-colors ${member.activeIndex === children.length - 1 ? 'invisible' : ''}`}
+                                        aria-label="Next child"
+                                    >
+                                        <ChevronRight size={16} />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {member.isExpanded && hasChildren && (
+                         <div
+                            className={`children-container relative flex items-center justify-center gap-1 pt-6 max-w-full`}
+                            data-parent-id={member.id}
+                            data-active-index={member.isCarouselMode ? member.activeIndex : undefined}
+                            data-is-carousel={member.isCarouselMode}
+                         >
+                            <div ref={childrenWrapperRef} className={`relative flex gap-1 ${member.isCarouselMode ? 'flex-nowrap' : 'flex-wrap'} justify-center w-full max-w-full overflow-hidden no-scrollbar`}>
+                                {children.map((child, index) => {
+                                    const isVisibleInCarousel = !member.isCarouselMode || index === member.activeIndex;
+                                    const childStyle = member.isCarouselMode ? { flexShrink: 0, width: '100%' } : {};
+
+                                    if (!isVisibleInCarousel) return null;
+
+                                    return (
+                                        <TreeNode
+                                            key={child.id}
+                                            member={child}
+                                            onAdd={onAdd}
+                                            onRemove={onRemove}
+                                            onNameChange={onNameChange}
+                                            onSpouseNameChange={onSpouseNameChange}
+                                            onToggleExpand={onToggleExpand}
+                                            onToggleCarousel={onToggleCarousel}
+                                            onSetActiveIndex={onSetActiveIndex}
+                                            getGenerationColor={getGenerationColor}
+                                            nodeRefs={nodeRefs}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Render the App component
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
