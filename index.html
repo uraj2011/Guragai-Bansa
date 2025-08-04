@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
@@ -106,8 +106,9 @@
             const [story, setStory] = React.useState(isSpouse ? (member?.spouseStory || '') : (member?.story || ''));
             const [dob, setDob] = React.useState(isSpouse ? (member?.spouseDob || '') : (member?.dob || ''));
             const [placeOfBirth, setPlaceOfBirth] = React.useState(isSpouse ? (member?.spousePlaceOfBirth || '') : (member?.placeOfBirth || ''));
-            const [isAlive, setIsAlive] = React.useState(isSpouse ? (member?.isAlive !== false) : (member?.isAlive !== false));
+            const [isAlive, setIsAlive] = React.useState(isSpouse ? (member?.spouseIsAlive !== false) : (member?.isAlive !== false));
             const [dateOfDeath, setDateOfDeath] = React.useState(isSpouse ? (member?.spouseDateOfDeath || '') : (member?.dateOfDeath || ''));
+            const [imageUrl, setImageUrl] = React.useState(isSpouse ? (member?.spouseImageUrl || '') : (member?.imageUrl || ''));
 
             if (!isOpen || !member) return null;
 
@@ -117,17 +118,33 @@
                     dob: dob,
                     placeOfBirth: placeOfBirth,
                     isAlive: isAlive,
-                    dateOfDeath: isAlive ? '' : dateOfDeath
+                    dateOfDeath: isAlive ? '' : dateOfDeath,
+                    imageUrl: imageUrl,
                 };
                 onSave(member.id, detailsToSave, isSpouse);
             };
 
             return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900 bg-opacity-50 backdrop-blur-sm">
-                    <div className="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full">
+                    <div className="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full overflow-y-auto max-h-[90vh]">
                         <h2 className="text-xl font-bold text-gray-800 mb-4">Details for {isSpouse ? member.spouseName : member.name}</h2>
                         
                         <div className="space-y-4">
+                             {imageUrl && (
+                                <div className="w-full h-48 overflow-hidden rounded-lg">
+                                    <img src={imageUrl} alt="User provided" className="object-cover w-full h-full"/>
+                                </div>
+                             )}
+                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                                <input
+                                    type="text"
+                                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={imageUrl}
+                                    onChange={(e) => setImageUrl(e.target.value)}
+                                    placeholder="Paste image URL here"
+                                />
+                             </div>
                              <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
                                 <input
@@ -200,7 +217,7 @@
 
         // Default family data
         const defaultFamilyData = [
-            { id: 1, name: "Grandpa Robert", reportsTo: null, isExpanded: true, isCarouselMode: false, spouseName: "Grandma Jane", gender: 'male', story: "A proud veteran and loving grandfather.", dob: "1945-03-21", placeOfBirth: "New York, USA", isAlive: false, dateOfDeath: "2015-01-10", spouseStory: "A loving partner who enjoyed gardening.", spouseDob: "1947-07-04", spousePlaceOfBirth: "Chicago, USA", spouseIsAlive: true, spouseDateOfDeath: "" },
+            { id: 1, name: "Grandpa Robert", reportsTo: null, isExpanded: true, isCarouselMode: false, spouseName: "Grandma Jane", gender: 'male', story: "A proud veteran and loving grandfather.", dob: "1945-03-21", placeOfBirth: "New York, USA", isAlive: false, dateOfDeath: "2015-01-10", spouseStory: "A loving partner who enjoyed gardening.", spouseDob: "1947-07-04", spousePlaceOfBirth: "Chicago, USA", spouseIsAlive: true, spouseDateOfDeath: "", imageUrl: "https://placehold.co/300x200/4f46e5/ffffff?text=Grandpa+Robert", spouseImageUrl: "https://placehold.co/300x200/94a3b8/ffffff?text=Grandma+Jane" },
             { id: 2, name: "Grandma Alice", reportsTo: 1, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'female', story: "", dob: "1948-06-10", placeOfBirth: "London, UK", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
             { id: 3, name: "Son Michael", reportsTo: 1, isExpanded: true, isCarouselMode: false, spouseName: "Wife Jessica", gender: 'male', story: "", dob: "", placeOfBirth: "", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
             { id: 4, name: "Daughter Emily", reportsTo: 2, isExpanded: true, isCarouselMode: false, spouseName: "Husband David", gender: 'female', story: "Traveled the world for a year after college.", dob: "1975-08-15", placeOfBirth: "London, UK", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
@@ -250,7 +267,7 @@
             
             const handleAddMember = (parentId, newName = "", gender) => {
                 const newId = Math.max(...familyData.map(member => member.id)) + 1;
-                const newMember = { id: newId, name: newName, reportsTo: parentId, isExpanded: true, isCarouselMode: false, spouseName: "", gender, story: "", dob: "", placeOfBirth: "", isAlive: true, dateOfDeath: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" };
+                const newMember = { id: newId, name: newName, reportsTo: parentId, isExpanded: true, isCarouselMode: false, spouseName: "", gender, story: "", dob: "", placeOfBirth: "", isAlive: true, dateOfDeath: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", imageUrl: "", spouseImageUrl: "" };
                 setFamilyData(prevData => [...prevData, newMember]);
             };
             
@@ -267,7 +284,7 @@
                     if (member.id === id) {
                         return {
                             ...member,
-                            ...(isSpouse ? {spouseStory: newDetails.story, spouseDob: newDetails.dob, spousePlaceOfBirth: newDetails.placeOfBirth, spouseIsAlive: newDetails.isAlive, spouseDateOfDeath: newDetails.dateOfDeath} : {story: newDetails.story, dob: newDetails.dob, placeOfBirth: newDetails.placeOfBirth, isAlive: newDetails.isAlive, dateOfDeath: newDetails.dateOfDeath})
+                            ...(isSpouse ? {spouseStory: newDetails.story, spouseDob: newDetails.dob, spousePlaceOfBirth: newDetails.placeOfBirth, spouseIsAlive: newDetails.isAlive, spouseDateOfDeath: newDetails.dateOfDeath, spouseImageUrl: newDetails.imageUrl} : {story: newDetails.story, dob: newDetails.dob, placeOfBirth: newDetails.placeOfBirth, isAlive: newDetails.isAlive, dateOfDeath: newDetails.dateOfDeath, imageUrl: newDetails.imageUrl})
                         };
                     }
                     return member;
@@ -605,7 +622,7 @@
                                     className="absolute -top-1 -right-1 p-1 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors"
                                     aria-label="Add story"
                                 >
-                                    <EditIcon size={12} hasStory={!!member.story || !!member.dob || !!member.placeOfBirth || !!member.dateOfDeath} />
+                                    <EditIcon size={12} hasStory={!!member.story || !!member.dob || !!member.placeOfBirth || !!member.dateOfDeath || !!member.imageUrl || !!member.videoUrl} />
                                 </button>
                                 {hasSpouse && (
                                     <>
@@ -638,7 +655,7 @@
                                                 className="absolute -top-1 -left-1 p-1 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors"
                                                 aria-label="Add spouse story"
                                             >
-                                                <EditIcon size={12} hasStory={!!member.spouseStory || !!member.spouseDob || !!member.spousePlaceOfBirth || !!member.spouseDateOfDeath} />
+                                                <EditIcon size={12} hasStory={!!member.spouseStory || !!member.spouseDob || !!member.spousePlaceOfBirth || !!member.spouseDateOfDeath || !!member.spouseImageUrl || !!member.spouseVideoUrl} />
                                             </button>
                                         </div>
                                     </>
@@ -694,7 +711,7 @@
                                         <ChevronLeft size={16} />
                                     </button>
                                 )}
-                                {member.isExpanded && children.length > 1 && !member.isCarouselMode && (
+                                {member.isExpanded && children.length > 1 && (
                                     <button
                                         onClick={() => onToggleCarousel(member.id)}
                                         className="p-1 bg-gray-200 text-gray-500 rounded-full shadow-lg hover:bg-gray-300 transition-colors"
@@ -772,4 +789,3 @@
     </script>
 </body>
 </html>
-
