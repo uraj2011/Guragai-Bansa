@@ -1,791 +1,1090 @@
- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Family Hierarchy Chart</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// Custom SVG components for consistent styling.
+const Plus = ({ size }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12h14" />
+        <path d="M12 5v14" />
+    </svg>
+);
+
+const Minus = ({ size }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12h14" />
+    </svg>
+);
+
+const ChevronRight = ({ size }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 18 15 12 9 6"></polyline>
+  </svg>
+);
+const ChevronLeft = ({ size }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="15 18 9 12 15 6"></polyline>
+  </svg>
+);
+const X = ({ size }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 6 6 18M6 6l12 12"></path>
+  </svg>
+);
+const Heart = ({ size }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+    </svg>
+);
+const Male = ({ size }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="18" r="3"></circle>
+    <path d="M12 15v-6M18 9h-3M9 9h-3"></path>
+  </svg>
+);
+const Female = ({ size }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="6" r="3"></circle>
+    <path d="M12 9v9M15 15h-6"></path>
+  </svg>
+);
+
+const EditIcon = ({ size, onClick, hasContent, color }) => {
+    const strokeColorClass = `text-${color}-400`;
+    return (
+        <svg onClick={onClick} className={`cursor-pointer ${strokeColorClass}`} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={hasContent ? `currentColor` : `none`} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>
+        </svg>
+    );
+};
+  
+const SpouseEditIcon = ({ size, onClick, hasContent, color }) => {
+    const strokeColorClass = `text-${color}-400`;
+    return (
+        <svg onClick={onClick} className={`cursor-pointer ${strokeColorClass}`} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={hasContent ? `currentColor` : `none`} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M11 15h-3a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5h3"></path><path d="M13 9h3a5 5 0 0 1 5 5v3a5 5 0 0 1-5 5h-3"></path><line x1="8" y1="2" x2="8" y2="7"></line><line x1="16" y1="17" x2="16" y2="22"></line><line x1="16" y1="2" x2="16" y2="7"></line>
+        </svg>
+    );
+};
+
+const TombstoneIcon = ({ size, onClick, hasContent, color }) => {
+    const strokeColorClass = `text-${color}-400`;
+    return (
+        <svg onClick={onClick} className={`cursor-pointer ${strokeColorClass}`} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={hasContent ? `currentColor` : `none`} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 10h-2v2h2v-2z"></path><path d="M14 10h-2v2h2v-2z"></path><path d="M10 10h-2v2h2v-2z"></path><path d="M12 2a4 4 0 0 0-4 4v7h8v-7a4 4 0 0 0-4-4z"></path><path d="M4 17h16"></path><path d="M12 17a4 4 0 0 0-4 4"></path><path d="M12 17a4 4 0 0 1 4 4"></path><path d="M12 21v-4"></path>
+        </svg>
+    );
+};
+
+// Default family data
+const defaultFamilyData = [
+    { id: 1, name: "Grandpa Robert", lastName: "Smith", reportsTo: null, isExpanded: true, isCarouselMode: false, spouseName: "Grandma Jane", spouseLastName: "Jones", isMarried: true, gender: 'male', color: '4f46e5', story: "A proud veteran and loving grandfather.", dob: "1945-03-21", placeOfBirth: "New York, USA", isAlive: false, dateOfDeath: "2015-01-10", placeOfCremation: "Arlington National Cemetery, VA", spouseStory: "A loving partner who enjoyed gardening.", spouseDob: "1947-07-04", spousePlaceOfBirth: "Chicago, USA", spouseIsAlive: true, spouseDateOfDeath: "", spousePlaceOfCremation: "" },
+    { id: 2, name: "Grandma Alice", lastName: "Smith", reportsTo: 1, isExpanded: true, isCarouselMode: false, spouseName: "", spouseLastName: "", isMarried: false, gender: 'female', color: '4f46e5', story: "", dob: "1948-06-10", placeOfBirth: "London, UK", isAlive: true, coupleStory: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", spousePlaceOfCremation: "" },
+    { id: 3, name: "Son Michael", lastName: "Smith", reportsTo: 1, isExpanded: true, isCarouselMode: false, spouseName: "Wife Jessica", spouseLastName: "Davis", isMarried: true, gender: 'male', color: '22C55E', story: "", dob: "", placeOfBirth: "", isAlive: true, coupleStory: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", spousePlaceOfCremation: "" },
+    { id: 4, name: "Daughter Emily", lastName: "Smith", reportsTo: 2, isExpanded: true, isCarouselMode: false, spouseName: "Husband David", spouseLastName: "Wilson", isMarried: true, gender: 'female', color: '22C55E', story: "Traveled the world for a year after college.", dob: "1975-08-15", placeOfBirth: "London, UK", isAlive: true, coupleStory: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", spousePlaceOfCremation: "" },
+    { id: 5, name: "Grandchild Ethan", lastName: "Smith", reportsTo: 3, isExpanded: true, isCarouselMode: false, spouseName: "", spouseLastName: "", isMarried: false, gender: 'male', color: 'EAB308', story: "", dob: "", placeOfBirth: "", isAlive: true, coupleStory: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", spousePlaceOfCremation: "" },
+    { id: 6, name: "Grandchild Olivia", lastName: "Smith", reportsTo: 3, isExpanded: true, isCarouselMode: false, spouseName: "", spouseLastName: "", isMarried: false, gender: 'female', color: 'EAB308', story: "", dob: "", placeOfBirth: "", isAlive: true, coupleStory: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", spousePlaceOfCremation: "" },
+    { id: 7, name: "Grandchild Liam", lastName: "Smith", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", spouseLastName: "", isMarried: false, gender: 'male', color: 'F97316', story: "", dob: "", placeOfBirth: "", isAlive: true, coupleStory: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", spousePlaceOfCremation: "" },
+    { id: 8, name: "Grandchild Noah", lastName: "Smith", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", spouseLastName: "", isMarried: false, gender: 'male', color: 'F97316', story: "", dob: "", placeOfBirth: "", isAlive: true, coupleStory: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", spousePlaceOfCremation: "" },
+    { id: 9, name: "Cousin A", lastName: "Smith", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", spouseLastName: "", isMarried: false, gender: 'male', color: '8B5CF6', story: "", dob: "", placeOfBirth: "", isAlive: true, coupleStory: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", spousePlaceOfCremation: "" },
+    { id: 10, name: "Cousin B", lastName: "Smith", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", spouseLastName: "", isMarried: false, gender: 'female', color: '8B5CF6', story: "", dob: "", placeOfBirth: "", isAlive: true, coupleStory: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", spousePlaceOfCremation: "" },
+    { id: 11, name: "Cousin C", lastName: "Smith", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", spouseLastName: "", isMarried: false, gender: 'male', color: '14B8A6', story: "", dob: "", placeOfBirth: "", isAlive: true, coupleStory: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", spousePlaceOfCremation: "" },
+    { id: 12, name: "Cousin D", lastName: "Smith", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", spouseLastName: "", isMarried: false, gender: 'female', color: '14B8A6', story: "", dob: "", placeOfBirth: "", isAlive: true, coupleStory: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", spousePlaceOfCremation: "" },
+];
+
+const getGenerationColor = (generation, familyData) => {
+    const colors = ['4f46e5', '22C55E', 'EAB308', 'F97316', '8B5CF6', '14B8A6'];
+    const member = familyData.find(m => m.generation === generation);
+    return member?.color || colors[(generation - 1) % colors.length];
+};
+
+// Main App component
+function App() {
+    const [familyData, setFamilyData] = useState(() => {
+        const savedData = localStorage.getItem('familyTreeData');
+        return savedData ? JSON.parse(savedData) : defaultFamilyData;
+    });
+    const [svgLines, setSvgLines] = useState([]);
+    const nodeRefs = useRef({});
+    const containerRef = useRef(null);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [memberToRemoveId, setMemberToRemoveId] = useState(null);
+    const [storyModalMember, setStoryModalMember] = useState(null);
+    const [isSpouseModal, setIsSpouseModal] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [message, setMessage] = useState({ text: '', type: '' });
+
+    // Save data to localStorage on every change
+    useEffect(() => {
+        localStorage.setItem('familyTreeData', JSON.stringify(familyData));
+    }, [familyData]);
+    
+    // Create a message box for user feedback
+    const showMessage = (text, type = 'success') => {
+        setMessage({ text, type });
+        setTimeout(() => {
+            setMessage({ text: '', type: '' });
+        }, 3000);
+    };
+
+    const handleSave = () => {
+        localStorage.setItem('familyTreeData', JSON.stringify(familyData));
+        showMessage('Family tree saved!', 'success');
+    };
+    
+    const handleLoad = () => {
+        const savedData = localStorage.getItem('familyTreeData');
+        if (savedData) {
+            setFamilyData(JSON.parse(savedData));
+            showMessage('Family tree loaded!', 'success');
+        } else {
+            showMessage('No saved data found.', 'error');
         }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
+    };
+    
+    const exportToCsv = () => {
+        const headers = ["ID", "Name", "Last Name", "Gender", "Generation", "Parent ID", "Is Married", "Is Alive", "Date of Birth", "Date of Death", "Place of Birth", "Place of Cremation/Burial", "Story", "Spouse Name", "Spouse Last Name", "Spouse Is Alive", "Spouse Date of Birth", "Spouse Date of Death", "Spouse Place of Birth", "Spouse Place of Cremation/Burial", "Spouse Story"];
+        
+        const csvRows = [headers.join(',')];
+        
+        familyData.forEach(member => {
+            const row = [
+                member.id,
+                `"${member.name}"`,
+                `"${member.lastName}"`,
+                member.gender,
+                member.generation,
+                member.reportsTo,
+                member.isMarried,
+                member.isAlive,
+                member.dob,
+                member.dateOfDeath,
+                `"${member.placeOfBirth}"`,
+                `"${member.placeOfCremation}"`,
+                `"${member.story}"`,
+                `"${member.spouseName}"`,
+                `"${member.spouseLastName}"`,
+                member.spouseIsAlive,
+                member.spouseDob,
+                member.spouseDateOfDeath,
+                `"${member.spousePlaceOfBirth}"`,
+                `"${member.spousePlaceOfCremation}"`,
+                `"${member.spouseStory}"`
+            ].map(item => typeof item === 'string' && item.includes(',') ? `"${item.replace(/"/g, '""')}"` : item);
+            csvRows.push(row.join(','));
+        });
+        
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('hidden', '');
+        a.setAttribute('href', url);
+        a.setAttribute('download', 'family_tree_data.csv');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
 
-    <script type="text/babel">
-        // Custom SVG components for consistent styling.
-        const Plus = ({ size }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14" />
-                <path d="M12 5v14" />
-            </svg>
-        );
-
-        const Minus = ({ size }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14" />
-            </svg>
-        );
-
-        const ChevronRight = ({ size }) => (
-          <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        );
-        const ChevronLeft = ({ size }) => (
-          <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-        );
-        const X = ({ size }) => (
-          <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 6 6 18M6 6l12 12"></path>
-          </svg>
-        );
-        const Heart = ({ size }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-            </svg>
-        );
-        const Male = ({ size }) => (
-          <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="18" r="3"></circle>
-            <path d="M12 15v-6M18 9h-3M9 9h-3"></path>
-          </svg>
-        );
-        const Female = ({ size }) => (
-          <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="6" r="3"></circle>
-            <path d="M12 9v9M15 15h-6"></path>
-          </svg>
-        );
-        const EditIcon = ({ size, onClick, hasStory }) => (
-             <svg onClick={onClick} className={`cursor-pointer ${hasStory ? 'text-gray-700' : 'text-gray-400'}`} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-            </svg>
-        );
-
-        // A simple modal component to replace window.confirm
-        const ConfirmModal = ({ isOpen, onConfirm, onCancel, message }) => {
-            if (!isOpen) return null;
-
-            return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900 bg-opacity-50 backdrop-blur-sm">
-                    <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full text-center">
-                        <p className="text-gray-700 font-semibold mb-4">{message}</p>
-                        <div className="flex justify-center space-x-4">
-                            <button
-                                onClick={onConfirm}
-                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
-                            >
-                                Yes, remove
-                            </button>
-                            <button
-                                onClick={onCancel}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            );
+    const handleAddMember = (parentId, newName = "", gender) => {
+        const parent = familyData.find(m => m.id === parentId);
+        const parentGeneration = parent?.generation || 0;
+        const parentLastName = parent?.lastName || "";
+        const newGeneration = parentId === null ? 1 : parentGeneration + 1;
+        const newId = familyData.length > 0 ? Math.max(...familyData.map(member => member.id)) + 1 : 1;
+        const newMember = { 
+            id: newId, 
+            name: newName, 
+            lastName: parentId === null ? "" : parentLastName,
+            reportsTo: parentId, 
+            isExpanded: true, 
+            isCarouselMode: false, 
+            spouseName: "", 
+            spouseLastName: "",
+            isMarried: false,
+            gender, 
+            story: "", 
+            dob: "", 
+            placeOfBirth: "", 
+            isAlive: true, 
+            dateOfDeath: "", 
+            placeOfCremation: "",
+            generation: newGeneration,
+            color: getGenerationColor(newGeneration, familyData)
         };
+        setFamilyData(prevData => [...prevData, newMember]);
+    };
+    
+    const handleNameChange = (id, newName) => {
+        setFamilyData(prevData => prevData.map(member => member.id === id ? { ...member, name: newName } : member));
+    };
 
-        // A modal for editing a person's story
-        const StoryModal = ({ isOpen, onClose, onSave, member, isSpouse }) => {
-            const [story, setStory] = React.useState(isSpouse ? (member?.spouseStory || '') : (member?.story || ''));
-            const [dob, setDob] = React.useState(isSpouse ? (member?.spouseDob || '') : (member?.dob || ''));
-            const [placeOfBirth, setPlaceOfBirth] = React.useState(isSpouse ? (member?.spousePlaceOfBirth || '') : (member?.placeOfBirth || ''));
-            const [isAlive, setIsAlive] = React.useState(isSpouse ? (member?.spouseIsAlive !== false) : (member?.isAlive !== false));
-            const [dateOfDeath, setDateOfDeath] = React.useState(isSpouse ? (member?.spouseDateOfDeath || '') : (member?.dateOfDeath || ''));
-            const [imageUrl, setImageUrl] = React.useState(isSpouse ? (member?.spouseImageUrl || '') : (member?.imageUrl || ''));
+    const handleLastNameChange = (id, newLastName) => {
+        setFamilyData(prevData => prevData.map(member => member.id === id ? { ...member, lastName: newLastName } : member));
+    };
+    
+    const handleSpouseNameChange = (id, newSpouseName) => {
+        setFamilyData(prevData => prevData.map(m => m.id === id ? { ...m, spouseName: newSpouseName, isMarried: !!newSpouseName } : m));
+    };
 
-            if (!isOpen || !member) return null;
+    const handleSpouseLastNameChange = (id, newSpouseLastName) => {
+        setFamilyData(prevData => prevData.map(member => member.id === id ? { ...member, spouseLastName: newSpouseLastName } : member));
+    };
 
-            const handleSaveClick = () => {
-                const detailsToSave = {
-                    story: story,
-                    dob: dob,
-                    placeOfBirth: placeOfBirth,
-                    isAlive: isAlive,
-                    dateOfDeath: isAlive ? '' : dateOfDeath,
-                    imageUrl: imageUrl,
-                };
-                onSave(member.id, detailsToSave, isSpouse);
-            };
-
-            return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900 bg-opacity-50 backdrop-blur-sm">
-                    <div className="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full overflow-y-auto max-h-[90vh]">
-                        <h2 className="text-xl font-bold text-gray-800 mb-4">Details for {isSpouse ? member.spouseName : member.name}</h2>
-                        
-                        <div className="space-y-4">
-                             {imageUrl && (
-                                <div className="w-full h-48 overflow-hidden rounded-lg">
-                                    <img src={imageUrl} alt="User provided" className="object-cover w-full h-full"/>
-                                </div>
-                             )}
-                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-                                <input
-                                    type="text"
-                                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={imageUrl}
-                                    onChange={(e) => setImageUrl(e.target.value)}
-                                    placeholder="Paste image URL here"
-                                />
-                             </div>
-                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                                <input
-                                    type="text"
-                                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={dob}
-                                    onChange={(e) => setDob(e.target.value)}
-                                    placeholder="e.g. 1990-01-01"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Place of Birth</label>
-                                <input
-                                    type="text"
-                                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={placeOfBirth}
-                                    onChange={(e) => setPlaceOfBirth(e.target.value)}
-                                    placeholder="e.g. London, UK"
-                                />
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <input
-                                    type="checkbox"
-                                    checked={isAlive}
-                                    onChange={(e) => setIsAlive(e.target.checked)}
-                                    className="rounded text-blue-600 focus:ring-blue-500"
-                                />
-                                <label className="text-sm font-medium text-gray-700">Still Living</label>
-                            </div>
-                            {!isAlive && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Death</label>
-                                    <input
-                                        type="text"
-                                        className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        value={dateOfDeath}
-                                        onChange={(e) => setDateOfDeath(e.target.value)}
-                                        placeholder="e.g. 2020-10-25"
-                                    />
-                                </div>
-                            )}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Story</label>
-                                <textarea
-                                    className="w-full h-48 p-2 border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={story}
-                                    onChange={(e) => setStory(e.target.value)}
-                                    placeholder="Write your story here..."
-                                ></textarea>
-                            </div>
-                        </div>
-                        <div className="flex justify-end space-x-4 mt-4">
-                            <button
-                                onClick={onClose}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSaveClick}
-                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
-                            >
-                                Save
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // Default family data
-        const defaultFamilyData = [
-            { id: 1, name: "Grandpa Robert", reportsTo: null, isExpanded: true, isCarouselMode: false, spouseName: "Grandma Jane", gender: 'male', story: "A proud veteran and loving grandfather.", dob: "1945-03-21", placeOfBirth: "New York, USA", isAlive: false, dateOfDeath: "2015-01-10", spouseStory: "A loving partner who enjoyed gardening.", spouseDob: "1947-07-04", spousePlaceOfBirth: "Chicago, USA", spouseIsAlive: true, spouseDateOfDeath: "", imageUrl: "https://placehold.co/300x200/4f46e5/ffffff?text=Grandpa+Robert", spouseImageUrl: "https://placehold.co/300x200/94a3b8/ffffff?text=Grandma+Jane" },
-            { id: 2, name: "Grandma Alice", reportsTo: 1, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'female', story: "", dob: "1948-06-10", placeOfBirth: "London, UK", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
-            { id: 3, name: "Son Michael", reportsTo: 1, isExpanded: true, isCarouselMode: false, spouseName: "Wife Jessica", gender: 'male', story: "", dob: "", placeOfBirth: "", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
-            { id: 4, name: "Daughter Emily", reportsTo: 2, isExpanded: true, isCarouselMode: false, spouseName: "Husband David", gender: 'female', story: "Traveled the world for a year after college.", dob: "1975-08-15", placeOfBirth: "London, UK", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
-            { id: 5, name: "Grandchild Ethan", reportsTo: 3, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'male', story: "", dob: "", placeOfBirth: "", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
-            { id: 6, name: "Grandchild Olivia", reportsTo: 3, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'female', story: "", dob: "", placeOfBirth: "", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
-            { id: 7, name: "Grandchild Liam", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'male', story: "", dob: "", placeOfBirth: "", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
-            { id: 8, name: "Grandchild Noah", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'male', story: "", dob: "", placeOfBirth: "", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
-            { id: 9, name: "Cousin A", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'male', story: "", dob: "", placeOfBirth: "", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
-            { id: 10, name: "Cousin B", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'female', story: "", dob: "", placeOfBirth: "", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
-            { id: 11, name: "Cousin C", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'male', story: "", dob: "", placeOfBirth: "", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
-            { id: 12, name: "Cousin D", reportsTo: 4, isExpanded: true, isCarouselMode: false, spouseName: "", gender: 'female', story: "", dob: "", placeOfBirth: "", isAlive: true, spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "" },
-        ];
-
-        // Main App component
-        function App() {
-            const [familyData, setFamilyData] = React.useState(() => {
-                const savedData = localStorage.getItem('familyTreeData');
-                return savedData ? JSON.parse(savedData) : defaultFamilyData;
-            });
-            const [svgLines, setSvgLines] = React.useState([]);
-            const nodeRefs = React.useRef({});
-            const containerRef = React.useRef(null);
-            const [showConfirmModal, setShowConfirmModal] = React.useState(false);
-            const [memberToRemoveId, setMemberToRemoveId] = React.useState(null);
-            const [storyModalMember, setStoryModalMember] = React.useState(null);
-            const [isSpouseModal, setIsSpouseModal] = React.useState(false);
-
-            // Save data to localStorage whenever it changes
-            React.useEffect(() => {
-                localStorage.setItem('familyTreeData', JSON.stringify(familyData));
-            }, [familyData]);
-            
-            const handleSave = () => {
-                localStorage.setItem('familyTreeData', JSON.stringify(familyData));
-                alert('Family tree saved!');
-            };
-            
-            const handleLoad = () => {
-                const savedData = localStorage.getItem('familyTreeData');
-                if (savedData) {
-                    setFamilyData(JSON.parse(savedData));
-                    alert('Family tree loaded!');
-                } else {
-                    alert('No saved data found.');
-                }
-            };
-            
-            const handleAddMember = (parentId, newName = "", gender) => {
-                const newId = Math.max(...familyData.map(member => member.id)) + 1;
-                const newMember = { id: newId, name: newName, reportsTo: parentId, isExpanded: true, isCarouselMode: false, spouseName: "", gender, story: "", dob: "", placeOfBirth: "", isAlive: true, dateOfDeath: "", spouseStory: "", spouseDob: "", spousePlaceOfBirth: "", spouseIsAlive: true, spouseDateOfDeath: "", imageUrl: "", spouseImageUrl: "" };
-                setFamilyData(prevData => [...prevData, newMember]);
-            };
-            
-            const handleNameChange = (id, newName) => {
-                setFamilyData(prevData => prevData.map(member => member.id === id ? { ...member, name: newName } : member));
-            };
-            
-            const handleSpouseNameChange = (id, newSpouseName) => {
-                setFamilyData(prevData => prevData.map(member => member.id === id ? { ...member, spouseName: newSpouseName } : member));
-            };
-
-            const handleStoryChange = (id, newDetails, isSpouse) => {
-                setFamilyData(prevData => prevData.map(member => {
-                    if (member.id === id) {
-                        return {
-                            ...member,
-                            ...(isSpouse ? {spouseStory: newDetails.story, spouseDob: newDetails.dob, spousePlaceOfBirth: newDetails.placeOfBirth, spouseIsAlive: newDetails.isAlive, spouseDateOfDeath: newDetails.dateOfDeath, spouseImageUrl: newDetails.imageUrl} : {story: newDetails.story, dob: newDetails.dob, placeOfBirth: newDetails.placeOfBirth, isAlive: newDetails.isAlive, dateOfDeath: newDetails.dateOfDeath, imageUrl: newDetails.imageUrl})
-                        };
-                    }
-                    return member;
-                }));
-                setStoryModalMember(null); // Close the modal
-            };
-
-            const handleOpenStoryModal = (member, isSpouse) => {
-                 setStoryModalMember(member);
-                 setIsSpouseModal(isSpouse);
-            };
-
-            const handleToggleExpand = (id) => {
-                setFamilyData(prevData => prevData.map(member => 
-                    member.id === id ? { ...member, isExpanded: !member.isExpanded, activeIndex: 0 } : member
-                ));
-            };
-            
-            const handleToggleCarousel = (id) => {
-                setFamilyData(prevData => prevData.map(member => 
-                    member.id === id ? { ...member, isCarouselMode: !member.isCarouselMode, activeIndex: 0 } : member
-                ));
-            };
-            
-            const handleSetActiveIndex = (id, newIndex) => {
-                setFamilyData(prevData => prevData.map(member =>
-                    member.id === id ? { ...member, activeIndex: newIndex } : member
-                ));
-            }
-            
-            const removeDescendants = (id, data) => {
-                const directChildren = data.filter(member => member.reportsTo === id);
-                let updatedData = data.filter(member => member.id !== id);
-                for (const child of directChildren) {
-                    updatedData = removeDescendants(child.id, updatedData);
-                }
-                return updatedData;
-            };
-
-            const handleRemoveMember = (idToRemove) => {
-                setMemberToRemoveId(idToRemove);
-                setShowConfirmModal(true);
-            };
-            
-            const confirmRemove = () => {
-                if (memberToRemoveId !== null) {
-                    const updatedData = removeDescendants(memberToRemoveId, familyData);
-                    setFamilyData(updatedData);
-                    setMemberToRemoveId(null);
-                    setShowConfirmModal(false);
-                }
-            };
-
-            const cancelRemove = () => {
-                setMemberToRemoveId(null);
-                setShowConfirmModal(false);
-            };
-
-            const buildTree = (data, reportsTo = null, generation = 1) => {
-                const children = data.filter(member => member.reportsTo === reportsTo);
-                children.sort((a, b) => a.id - b.id); // Sort children by ID for ascending order
-                return children.map(member => ({
+    const handleStoryChange = (id, newDetails, isSpouse) => {
+        setFamilyData(prevData => prevData.map(member => {
+            if (member.id === id) {
+                return {
                     ...member,
-                    generation: generation,
-                    children: buildTree(data, member.id, generation + 1),
-                }));
-            };
+                    ...(isSpouse ? {spouseStory: newDetails.story, spouseDob: newDetails.dob, spousePlaceOfBirth: newDetails.placeOfBirth, spouseIsAlive: newDetails.isAlive, spouseDateOfDeath: newDetails.dateOfDeath, spousePlaceOfCremation: newDetails.placeOfCremation} : {story: newDetails.story, dob: newDetails.dob, placeOfBirth: newDetails.placeOfBirth, isAlive: newDetails.isAlive, dateOfDeath: newDetails.dateOfDeath, placeOfCremation: newDetails.placeOfCremation})
+                };
+            }
+            return member;
+        }));
+        setStoryModalMember(null);
+    };
 
-            const familyTree = buildTree(familyData, null);
+    const handleOpenStoryModal = (member, isSpouse) => {
+        setStoryModalMember(member);
+        setIsSpouseModal(isSpouse);
+    };
 
-            const getGenerationColor = (generation) => {
-                const colors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-orange-500', 'bg-purple-500', 'bg-teal-500'];
-                return colors[(generation - 1) % colors.length];
-            };
+    const handleToggleExpand = (id) => {
+        setFamilyData(prevData => prevData.map(member => 
+            member.id === id ? { ...member, isExpanded: !member.isExpanded } : member
+        ));
+    };
+    
+    const handleToggleCarousel = (id) => {
+        setFamilyData(prevData => prevData.map(member =>
+            member.id === id ? { ...member, isCarouselMode: !member.isCarouselMode, activeIndex: 0 } : member
+        ));
+    };
 
-            const renderLines = () => {
-                const lines = [];
-                if (!containerRef.current) return;
-                const containerRect = containerRef.current.getBoundingClientRect();
-                
-                Object.values(nodeRefs.current).forEach(parentRef => {
-                    if (!parentRef) return;
-                    
-                    const parentId = parseInt(parentRef.dataset.id);
-                    const parentMember = familyData.find(m => m.id === parentId);
-                    const isExpanded = parentMember?.isExpanded;
-                    
-                    const children = isExpanded ? familyData.filter(member => member.reportsTo === parentId) : [];
-                    if (children.length === 0) return;
+    const handleSetActiveIndex = (id, newIndex) => {
+        setFamilyData(prevData => prevData.map(member =>
+            member.id === id ? { ...member, activeIndex: newIndex } : member
+        ));
+    };
 
-                    const parentRect = parentRef.getBoundingClientRect();
-                    const parentCenterX = parentRect.x + parentRect.width / 2 - containerRect.x;
-                    const parentBottomY = parentRect.bottom - containerRect.y;
-
-                    const isCarouselMode = parentMember?.isCarouselMode;
-                    const childRefs = children.map(child => nodeRefs.current[child.id]);
-                    const childRects = childRefs.map(childRef => childRef?.getBoundingClientRect()).filter(Boolean);
-
-                    if (!isCarouselMode) {
-                        const firstChildRect = childRects[0];
-                        if(!firstChildRect) return;
-                        const horizontalLineY = firstChildRect.y - containerRect.y - 12;
-
-                        lines.push(<path key={`v-${parentId}`} d={`M ${parentCenterX} ${parentBottomY} L ${parentCenterX} ${horizontalLineY}`} stroke="#9ca3af" strokeWidth="2" fill="none" />);
-
-                        if (childRects.length > 1) {
-                            const startChildX = childRects[0].x + childRects[0].width / 2 - containerRect.x;
-                            const endChildX = childRects[childRects.length - 1].x + childRects[childRects.length - 1].width / 2 - containerRect.x;
-                            lines.push(<path key={`h-${parentId}`} d={`M ${startChildX} ${horizontalLineY} L ${endChildX} ${horizontalLineY}`} stroke="#9ca3af" strokeWidth="2" fill="none" />);
-                        }
-                        
-                        childRects.forEach((childRect, index) => {
-                            const childX = childRect.x + childRect.width / 2 - containerRect.x;
-                            const childTopY = childRect.y - containerRect.y;
-                            lines.push(<path key={`vc-${children[index].id}`} d={`M ${childX} ${horizontalLineY} L ${childX} ${childTopY}`} stroke="#9ca3af" strokeWidth="2" fill="none" />);
-                        });
-                    } else { // Carousel mode
-                        const activeIndex = parentMember.activeIndex || 0;
-                        const displayedChild = children[activeIndex];
-                        if (!displayedChild) return;
-                        const childRef = nodeRefs.current[displayedChild.id];
-                        if (!childRef) return;
-
-                        const childRect = childRef.getBoundingClientRect();
-                        const childCenterX = childRect.x + childRect.width / 2 - containerRect.x;
-                        const childTopY = childRect.y - containerRect.y;
-
-                        lines.push(
-                            <path
-                                key={`line-${parentId}-${displayedChild.id}`}
-                                d={`M ${parentCenterX} ${parentBottomY} L ${parentCenterX} ${childTopY - 12} L ${childCenterX} ${childTopY - 12} L ${childCenterX} ${childTopY}`}
-                                stroke="#9ca3af"
-                                strokeWidth="2" fill="none"
-                            />
-                        );
-                    }
-                });
-
-                setSvgLines(lines);
-            };
-            
-            React.useEffect(() => {
-                renderLines();
-                window.addEventListener('resize', renderLines);
-                return () => window.removeEventListener('resize', renderLines);
-            }, [familyData]);
-            
-            return (
-                <div className="bg-gray-100 min-h-screen p-4 sm:p-8 font-sans antialiased relative">
-                    <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-2xl p-6 relative" ref={containerRef}>
-                        <div className="flex flex-col sm:flex-row items-center justify-between mb-6">
-                            <h1 className="text-3xl font-bold text-gray-800 text-center sm:text-left mb-4 sm:mb-0">Family Hierarchy Chart</h1>
-                            <div className="flex space-x-2">
-                                <button
-                                    onClick={handleSave}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
-                                >
-                                    Save
-                                </button>
-                                <button
-                                    onClick={handleLoad}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
-                                >
-                                    Load
-                                </button>
-                            </div>
-                        </div>
-                        <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
-                            <defs>
-                                <marker id="arrowhead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-                                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#9ca3af" />
-                                </marker>
-                            </defs>
-                            {svgLines.map(line => {
-                                const newPath = React.cloneElement(line, { markerEnd: "url(#arrowhead)" });
-                                return newPath;
-                            })}
-                        </svg>
-                        <div className="flex flex-col items-center">
-                            {familyTree.length > 0 ? (
-                                familyTree.map(member => (
-                                    <TreeNode
-                                        key={member.id}
-                                        member={member}
-                                        onAdd={handleAddMember}
-                                        onRemove={handleRemoveMember}
-                                        onNameChange={handleNameChange}
-                                        onSpouseNameChange={handleSpouseNameChange}
-                                        onStoryChange={handleStoryChange}
-                                        onOpenStoryModal={handleOpenStoryModal}
-                                        onToggleExpand={handleToggleExpand}
-                                        onToggleCarousel={handleToggleCarousel}
-                                        onSetActiveIndex={handleSetActiveIndex}
-                                        getGenerationColor={getGenerationColor}
-                                        nodeRefs={nodeRefs}
-                                    />
-                                ))
-                            ) : (
-                                <p className="text-gray-500">No family members to display.</p>
-                            )}
-                        </div>
-                    </div>
-                    <ConfirmModal
-                        isOpen={showConfirmModal}
-                        onConfirm={confirmRemove}
-                        onCancel={cancelRemove}
-                        message="Are you sure you want to remove this person and all their descendants?"
-                    />
-                    <StoryModal
-                        isOpen={!!storyModalMember}
-                        onClose={() => setStoryModalMember(null)}
-                        onSave={handleStoryChange}
-                        member={storyModalMember}
-                        isSpouse={isSpouseModal}
-                    />
-                </div>
-            );
+    const removeDescendants = (id, data) => {
+        const directChildren = data.filter(member => member.reportsTo === id);
+        let updatedData = data.filter(member => member.id !== id);
+        for (const child of directChildren) {
+            updatedData = removeDescendants(child.id, updatedData);
         }
+        return updatedData;
+    };
 
-        // Recursive component to render each node in the tree.
-        function TreeNode({ member, onAdd, onRemove, onNameChange, onSpouseNameChange, onStoryChange, onOpenStoryModal, onToggleExpand, onToggleCarousel, onSetActiveIndex, getGenerationColor, nodeRefs }) {
-            const [isNameEditing, setIsNameEditing] = React.useState(false);
-            const [isSpouseEditing, setIsSpouseEditing] = React.useState(false);
-            const childrenWrapperRef = React.useRef(null);
+    const handleRemoveMember = (idToRemove) => {
+        setMemberToRemoveId(idToRemove);
+        setShowConfirmModal(true);
+    };
+    
+    const confirmRemove = () => {
+        if (memberToRemoveId !== null) {
+            const updatedData = removeDescendants(memberToRemoveId, familyData);
+            setFamilyData(updatedData);
+            setMemberToRemoveId(null);
+            setShowConfirmModal(false);
+        }
+    };
+
+    const cancelRemove = () => {
+        setMemberToRemoveId(null);
+        setShowConfirmModal(false);
+    };
+
+    const buildTree = (data, reportsTo = null, generation = 1) => {
+        const children = data.filter(member => member.reportsTo === reportsTo);
+        children.sort((a, b) => a.id - b.id);
+        return children.map(member => ({
+            ...member,
+            generation: generation,
+            children: buildTree(data, member.id, generation + 1),
+        }));
+    };
+
+    const familyTree = buildTree(familyData, null);
+    
+    const renderLines = useCallback(() => {
+        const lines = [];
+        if (!containerRef.current) return;
+        const containerRect = containerRef.current.getBoundingClientRect();
+        
+        Object.values(nodeRefs.current).forEach(parentRef => {
+            if (!parentRef) return;
             
-            const handlePrevChild = () => {
-                onSetActiveIndex(member.id, Math.max(0, member.activeIndex - 1));
-            };
-
-            const handleNextChild = () => {
-                onSetActiveIndex(member.id, Math.min(member.children.length - 1, member.activeIndex + 1));
-            };
-
-            // Local state to manage input values during editing
-            const [editedName, setEditedName] = React.useState(member.name);
-            const [editedSpouseName, setEditedSpouseName] = React.useState(member.spouseName);
+            const parentId = parseInt(parentRef.dataset.id);
+            const parentMember = familyData.find(m => m.id === parentId);
+            const isExpanded = parentMember?.isExpanded;
             
-            React.useEffect(() => {
-              setEditedName(member.name);
-              setEditedSpouseName(member.spouseName);
-            }, [member.name, member.spouseName]);
-            
-            const nameInputRef = React.useRef(null);
-            const spouseInputRef = React.useRef(null);
+            const children = familyData.filter(member => member.reportsTo === parentId);
+            if (children.length === 0 || !isExpanded) return;
 
-            React.useEffect(() => {
-                if (isNameEditing && nameInputRef.current) {
-                    nameInputRef.current.focus();
+            const parentRect = parentRef.getBoundingClientRect();
+            const parentCenterX = parentRect.x + parentRect.width / 2 - containerRect.x;
+            const parentBottomY = parentRect.bottom - containerRect.y;
+
+            const childRefs = children.map(child => nodeRefs.current[child.id]);
+            const childRects = childRefs.map(childRef => childRef?.getBoundingClientRect()).filter(Boolean);
+
+            const isCarouselMode = parentMember?.isCarouselMode;
+
+            if (!isCarouselMode) {
+                if (childRects.length > 0) {
+                    const firstChildRect = childRects[0];
+                    const lastChildRect = childRects[childRects.length - 1];
+                    
+                    const horizontalLineY = (firstChildRect.y - containerRect.y) - 24;
+                    
+                    // Line from parent to horizontal line
+                    lines.push(<path key={`v-${parentId}`} d={`M ${parentCenterX} ${parentBottomY + 4} V ${horizontalLineY}`} stroke="#9ca3af" strokeWidth="2" fill="none" />);
+                    
+                    // Horizontal line connecting children
+                    const startChildX = childRects[0].x + childRects[0].width / 2 - containerRect.x;
+                    const endChildX = lastChildRect.x + lastChildRect.width / 2 - containerRect.x;
+                    lines.push(<path key={`h-${parentId}`} d={`M ${startChildX} ${horizontalLineY} H ${endChildX}`} stroke="#9ca3af" strokeWidth="2" fill="none" />);
+                    
+                    // Vertical lines from horizontal line to children
+                    childRects.forEach((childRect, index) => {
+                        const childX = childRect.x + childRect.width / 2 - containerRect.x;
+                        const childTopY = childRect.y - containerRect.y;
+                        lines.push(<path key={`vc-${children[index].id}`} d={`M ${childX} ${horizontalLineY} V ${childTopY - 4}`} stroke="#9ca3af" strokeWidth="2" fill="none" />);
+                    });
                 }
-            }, [isNameEditing]);
+            } else {
+                const activeIndex = parentMember.activeIndex || 0;
+                const displayedChild = children[activeIndex];
+                if (!displayedChild) return;
+                const childRef = nodeRefs.current[displayedChild.id];
+                if (!childRef) return;
 
-            React.useEffect(() => {
-                if (isSpouseEditing && spouseInputRef.current) {
-                    spouseInputRef.current.focus();
-                }
-            }, [isSpouseEditing]);
+                const childRect = childRef.getBoundingClientRect();
+                const childCenterX = childRect.x + childRect.width / 2 - containerRect.x;
+                const childTopY = childRect.y - containerRect.y;
+                const horizontalLineY = childTopY - 24;
 
-            const getGenderBoxColor = (gender) => {
-                if (gender === 'male') {
-                    return 'bg-sky-200';
-                } else if (gender === 'female') {
-                    return 'bg-pink-200';
-                }
-                return 'bg-gray-200';
-            };
-            
-            const getGenderTextColor = (gender) => {
-                if (gender === 'male') {
-                    return 'text-sky-800';
-                } else if (gender === 'female') {
-                    return 'text-pink-800';
-                }
-                return 'text-gray-800';
-            };
-
-            const handleNameBlur = (e) => {
-                onNameChange(member.id, editedName);
-                setIsNameEditing(false);
-            };
-
-            const handleSpouseNameBlur = (e) => {
-                onSpouseNameChange(member.id, editedSpouseName);
-                setIsSpouseEditing(false);
-            };
-
-            const handleAddSpouse = () => onSpouseNameChange(member.id, "New Spouse");
-            const handleRemoveSpouse = () => {
-                onSpouseNameChange(member.id, '');
-            };
-            
-            const hasSpouse = !!member.spouseName;
-            const hasChildren = member.children && member.children.length > 0;
-            const cardColor = getGenerationColor(member.generation);
-            const genderBoxColor = getGenderBoxColor(member.gender);
-            const genderTextColor = getGenderTextColor(member.gender);
-            const children = member.children || [];
-            
-            const isCarouselMode = member.isCarouselMode;
-            const displayedChild = hasChildren && member.activeIndex !== undefined ? children[member.activeIndex] : null;
-            const showPrevButton = member.activeIndex > 0;
-            const showNextButton = member.activeIndex < children.length - 1;
-
-            return (
-                <div className="relative flex flex-col items-center">
-                    <div className="p-1 rounded-xl shadow-md border-2 border-gray-300 bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-xl w-32 mx-auto flex flex-col">
-                        <div className={`p-0.5 w-full rounded-t-lg text-white font-bold text-[9px] flex items-center justify-center ${cardColor}`}>
-                            G{member.generation}
-                        </div>
-                        <div className="flex justify-center items-center h-full flex-col p-1">
-                            {/* Main Member Card */}
-                            <div
-                                className={`relative rounded-lg shadow-sm border border-gray-200 w-full mb-1 text-center ${genderBoxColor}`}
-                                ref={el => nodeRefs.current[member.id] = el}
-                                data-id={member.id}
-                            >
-                                <div className="flex items-center w-full">
-                                    {isNameEditing ? (
-                                        <input
-                                            type="text"
-                                            ref={nameInputRef}
-                                            className={`flex-grow text-[10px] font-semibold p-0.5 text-center focus:outline-none ${genderTextColor}`}
-                                            value={editedName}
-                                            onChange={(e) => setEditedName(e.target.value)}
-                                            onBlur={handleNameBlur}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                                        />
-                                    ) : (
-                                        <span onClick={(e) => {e.stopPropagation(); setIsNameEditing(true);}} className={`flex-grow text-[10px] font-semibold p-0.5 text-center cursor-pointer ${genderTextColor}`}>
-                                            {member.name || "Click to add name"}
-                                        </span>
-                                    )}
-                                </div>
+                lines.push(
+                    <path
+                        key={`line-${parentId}-${displayedChild.id}`}
+                        d={`M ${parentCenterX} ${parentBottomY + 4} V ${horizontalLineY} H ${childCenterX} V ${childTopY - 4}`}
+                        stroke="#9ca3af"
+                        strokeWidth="2" fill="none"
+                    />
+                );
+            }
+        });
+        
+        setSvgLines(lines);
+    }, [familyData]);
+    
+    useEffect(() => {
+        renderLines();
+        const handleResize = () => renderLines();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [familyData, renderLines]);
+    
+    const maxGeneration = familyData.length > 0 ? Math.max(...familyData.map(m => m.generation)) : 0;
+    const generations = [];
+    for (let i = 1; i <= maxGeneration; i++) {
+        generations.push(i);
+    }
+    
+    return (
+        <div className={`min-h-screen p-4 sm:p-8 font-sans antialiased relative`} style={{ backgroundColor: `#${getGenerationColor(familyTree.length > 0 ? familyTree[0].generation : 1, familyData)}1A` }}>
+            {message.text && (
+                <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-md ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {message.text}
+                </div>
+            )}
+            <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-2xl p-6 relative main-container" ref={containerRef}>
+                <div className="flex flex-col sm:flex-row items-center justify-between mb-6">
+                    <h1 className="text-2xl font-bold text-gray-800 text-center sm:text-left mb-4 sm:mb-0">Family Hierarchy Chart</h1>
+                    <div className="no-print flex space-x-2">
+                        <button
+                            onClick={handleSave}
+                            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
+                        >
+                            Save
+                        </button>
+                        <button
+                            onClick={handleLoad}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+                        >
+                            Load
+                        </button>
+                        <button
+                            onClick={exportToCsv}
+                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors"
+                        >
+                            Export to CSV
+                        </button>
+                        <button
+                            onClick={() => window.print()}
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                            Print / Export
+                        </button>
+                    </div>
+                </div>
+                <div className="no-print flex flex-col md:flex-row justify-between mb-6 space-y-4 md:space-y-0">
+                    <div className="flex items-center space-x-2 w-full md:w-1/2">
+                        <input
+                            type="text"
+                            placeholder="Search family member..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-gray-300 text-sm"
+                        />
+                        {searchTerm && (
                                 <button
-                                    onClick={() => onOpenStoryModal(member, false)}
-                                    className="absolute -top-1 -right-1 p-1 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors"
-                                    aria-label="Add story"
+                                    onClick={() => setSearchTerm('')}
+                                    className="p-2 text-gray-500 rounded-full hover:bg-gray-200 transition-colors"
                                 >
-                                    <EditIcon size={12} hasStory={!!member.story || !!member.dob || !!member.placeOfBirth || !!member.dateOfDeath || !!member.imageUrl || !!member.videoUrl} />
+                                    <X size={16} />
                                 </button>
-                                {hasSpouse && (
-                                    <>
-                                        <div className="border-b border-gray-300 mx-1"></div>
-                                        <div className="relative flex items-center w-full">
-                                            {isSpouseEditing ? (
-                                                <input
-                                                    type="text"
-                                                    ref={spouseInputRef}
-                                                    className={`flex-grow text-[10px] font-semibold p-0.5 text-center focus:outline-none bg-purple-200 text-purple-800`}
-                                                    value={editedSpouseName}
-                                                    onChange={(e) => setEditedSpouseName(e.target.value)}
-                                                    onBlur={handleSpouseNameBlur}
-                                                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                                                />
-                                            ) : (
-                                                <span onClick={(e) => {e.stopPropagation(); setIsSpouseEditing(true);}} className={`flex-grow text-[10px] font-semibold p-0.5 text-center cursor-pointer bg-purple-200 text-purple-800`}>
-                                                    {member.spouseName}
-                                                </span>
-                                            )}
-                                            <button
-                                                onClick={handleRemoveSpouse}
-                                                className="p-1 text-red-500 rounded-full hover:bg-red-100 transition-colors absolute right-1"
-                                                aria-label="Remove spouse"
-                                            >
-                                                <X size={12} />
-                                            </button>
-                                             <button
-                                                onClick={() => onOpenStoryModal(member, true)}
-                                                className="absolute -top-1 -left-1 p-1 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors"
-                                                aria-label="Add spouse story"
-                                            >
-                                                <EditIcon size={12} hasStory={!!member.spouseStory || !!member.spouseDob || !!member.spousePlaceOfBirth || !!member.spouseDateOfDeath || !!member.spouseImageUrl || !!member.spouseVideoUrl} />
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                            
-                            {/* Add Spouse Button */}
-                            {!hasSpouse && (
-                                <button
-                                    onClick={(e) => {e.stopPropagation(); handleAddSpouse();}}
-                                    className="w-full p-1 my-0.5 text-gray-500 rounded-full hover:bg-gray-200 transition-colors"
-                                    aria-label="Add spouse"
-                                >
-                                    <Heart size={14} />
-                                </button>
-                            )}
-
-                            {/* Action Buttons */}
-                            <div className="flex justify-between w-full mt-1">
-                                <button
-                                    onClick={() => onAdd(member.id, "", "male")}
-                                    className="flex-1 mx-0.5 p-1 text-gray-500 rounded-full hover:bg-gray-200 transition-colors"
-                                    aria-label="Add son"
-                                >
-                                    <Male size={14} />
-                                </button>
-                                <button
-                                    onClick={() => onAdd(member.id, "", "female")}
-                                    className="flex-1 mx-0.5 p-1 text-gray-500 rounded-full hover:bg-gray-200 transition-colors"
-                                    aria-label="Add daughter"
-                                >
-                                    <Female size={14} />
-                                </button>
-                                {member.reportsTo !== null && (
-                                    <button
-                                        onClick={() => onRemove(member.id)}
-                                        className="flex-1 mx-0.5 p-1 text-red-500 rounded-full hover:bg-red-100 transition-colors"
-                                        aria-label="Remove member"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                        {hasChildren && (
-                            <div className="flex items-center justify-between w-full mt-1 px-1">
-                                {member.isExpanded && children.length > 1 && member.isCarouselMode && (
-                                    <button
-                                        onClick={handlePrevChild} 
-                                        className={`p-1 text-gray-500 rounded-full hover:bg-gray-200 transition-colors ${member.activeIndex === 0 ? 'invisible' : ''}`}
-                                        aria-label="Previous child"
-                                    >
-                                        <ChevronLeft size={16} />
-                                    </button>
-                                )}
-                                {member.isExpanded && children.length > 1 && (
-                                    <button
-                                        onClick={() => onToggleCarousel(member.id)}
-                                        className="p-1 bg-gray-200 text-gray-500 rounded-full shadow-lg hover:bg-gray-300 transition-colors"
-                                        aria-label="Toggle carousel view"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <rect x="3" y="3" width="7" height="7" />
-                                            <rect x="14" y="3" width="7" height="7" />
-                                            <rect x="14" y="14" width="7" height="7" />
-                                            <rect x="3" y="14" width="7" height="7" />
-                                        </svg>
-                                    </button>
-                                )}
-                                <button
-                                    onClick={(e) => {e.stopPropagation(); onToggleExpand(member.id)}}
-                                    className="p-1 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
-                                    aria-label={member.isExpanded ? 'Collapse' : 'Expand'}
-                                >
-                                    {member.isExpanded ? <Minus size={14} /> : <Plus size={14} />}
-                                </button>
-                                {member.isExpanded && children.length > 1 && member.isCarouselMode && (
-                                    <button
-                                        onClick={handleNextChild} 
-                                        className={`p-1 text-gray-500 rounded-full hover:bg-gray-200 transition-colors ${member.activeIndex === children.length - 1 ? 'invisible' : ''}`}
-                                        aria-label="Next child"
-                                    >
-                                        <ChevronRight size={16} />
-                                    </button>
-                                )}
-                            </div>
                         )}
                     </div>
-
-                    {member.isExpanded && hasChildren && (
-                         <div
-                            className={`children-container relative flex items-center justify-center gap-1 pt-6 max-w-full`}
-                            data-parent-id={member.id}
-                            data-active-index={member.isCarouselMode ? member.activeIndex : undefined}
-                            data-is-carousel={member.isCarouselMode}
-                         >
-                            <div ref={childrenWrapperRef} className={`relative flex gap-1 ${member.isCarouselMode ? 'flex-nowrap' : 'flex-wrap'} justify-center w-full max-w-full overflow-hidden no-scrollbar`}>
-                                {children.map((child, index) => {
-                                    const isVisibleInCarousel = !member.isCarouselMode || index === member.activeIndex;
-                                    const childStyle = member.isCarouselMode ? { flexShrink: 0, width: '100%' } : {};
-
-                                    if (!isVisibleInCarousel) return null;
-
-                                    return (
-                                        <TreeNode
-                                            key={child.id}
-                                            member={child}
-                                            onAdd={onAdd}
-                                            onRemove={onRemove}
-                                            onNameChange={onNameChange}
-                                            onSpouseNameChange={onSpouseNameChange}
-                                            onStoryChange={onStoryChange}
-                                            onOpenStoryModal={onOpenStoryModal}
-                                            onToggleExpand={onToggleExpand}
-                                            onToggleCarousel={onToggleCarousel}
-                                            onSetActiveIndex={onSetActiveIndex}
-                                            getGenerationColor={getGenerationColor}
-                                            nodeRefs={nodeRefs}
+                    <div className="flex flex-col items-end w-full md:w-1/2">
+                        <div className="text-sm font-semibold text-gray-800 mb-2">Change Generation Colors:</div>
+                        <div className="flex flex-wrap gap-2">
+                            {generations.map(gen => (
+                                    <div key={gen} className="flex items-center space-x-1">
+                                        <span className="text-xs text-gray-700">G{gen}:</span>
+                                        <input
+                                            type="color"
+                                            className="w-8 h-8 rounded-full border-none cursor-pointer"
+                                            value={`#${getGenerationColor(gen, familyData)}`}
+                                            onChange={(e) => {
+                                                const newColor = e.target.value.substring(1);
+                                                setFamilyData(prevData => prevData.map(m => m.generation === gen ? { ...m, color: newColor } : m));
+                                            }}
                                         />
-                                    );
-                                })}
-                            </div>
+                                    </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
+                    <defs>
+                        <marker id="arrowhead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#9ca3af" />
+                        </marker>
+                    </defs>
+                    {svgLines.map((line, index) => {
+                        const newPath = React.cloneElement(line, { markerEnd: "url(#arrowhead)" });
+                        return newPath;
+                    })}
+                </svg>
+                <div className="flex flex-col items-start">
+                    {familyTree.length > 0 ? (
+                        familyTree.map(member => (
+                            <TreeNode
+                                key={member.id}
+                                member={member}
+                                onAdd={handleAddMember}
+                                onRemove={handleRemoveMember}
+                                onNameChange={handleNameChange}
+                                onLastNameChange={handleLastNameChange}
+                                onSpouseNameChange={handleSpouseNameChange}
+                                onSpouseLastNameChange={handleSpouseLastNameChange}
+                                onStoryChange={handleStoryChange}
+                                onOpenStoryModal={handleOpenStoryModal}
+                                onToggleExpand={handleToggleExpand}
+                                onToggleCarousel={handleToggleCarousel}
+                                onSetActiveIndex={handleSetActiveIndex}
+                                getGenerationColor={getGenerationColor}
+                                searchTerm={searchTerm}
+                                nodeRefs={nodeRefs}
+                                familyData={familyData}
+                            />
+                        ))
+                    ) : (
+                        <p className="text-gray-500">No family members to display. Click "Add root member" to get started.</p>
+                    )}
+                    {familyTree.length === 0 && (
+                        <div className="no-print flex justify-center w-full mt-4">
+                            <button
+                                onClick={() => handleAddMember(null, "New Root Member", "male")}
+                                className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                            >
+                                Add Root Member
+                            </button>
                         </div>
                     )}
                 </div>
-            );
+            </div>
+            <ConfirmModal
+                isOpen={showConfirmModal}
+                onConfirm={confirmRemove}
+                onCancel={cancelRemove}
+                message="Are you sure you want to remove this person and all their descendants?"
+            />
+            <StoryModal
+                isOpen={!!storyModalMember}
+                onClose={() => setStoryModalMember(null)}
+                onSave={handleStoryChange}
+                member={storyModalMember}
+                isSpouse={isSpouseModal}
+            />
+        </div>
+    );
+}
+
+// Modal components
+const Modal = ({ isOpen, onClose, title, children }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
+            <div className="relative mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                        <X size={24} />
+                    </button>
+                </div>
+                {children}
+            </div>
+        </div>
+    );
+};
+
+const ConfirmModal = ({ isOpen, onConfirm, onCancel, message }) => (
+    <Modal isOpen={isOpen} onClose={onCancel} title="Confirm Deletion">
+        <p className="text-sm text-gray-700 mb-4">{message}</p>
+        <div className="flex justify-end space-x-2">
+            <button onClick={onCancel} className="px-4 py-2 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors text-sm">
+                Cancel
+            </button>
+            <button onClick={onConfirm} className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors text-sm">
+                Confirm
+            </button>
+        </div>
+    </Modal>
+);
+
+const StoryModal = ({ isOpen, onClose, onSave, member, isSpouse }) => {
+    const [story, setStory] = useState(isSpouse ? member?.spouseStory || "" : member?.story || "");
+    const [dob, setDob] = useState(isSpouse ? member?.spouseDob || "" : member?.dob || "");
+    const [placeOfBirth, setPlaceOfBirth] = useState(isSpouse ? member?.spousePlaceOfBirth || "" : member?.placeOfBirth || "");
+    const [isAlive, setIsAlive] = useState(isSpouse ? member?.spouseIsAlive !== undefined ? member.spouseIsAlive : true : member?.isAlive !== undefined ? member.isAlive : true);
+    const [dateOfDeath, setDateOfDeath] = useState(isSpouse ? member?.spouseDateOfDeath || "" : member?.dateOfDeath || "");
+    const [placeOfCremation, setPlaceOfCremation] = useState(isSpouse ? member?.spousePlaceOfCremation || "" : member?.placeOfCremation || "");
+
+    useEffect(() => {
+        if (member) {
+            setStory(isSpouse ? member.spouseStory || "" : member.story || "");
+            setDob(isSpouse ? member.spouseDob || "" : member.dob || "");
+            setPlaceOfBirth(isSpouse ? member.spousePlaceOfBirth || "" : member.placeOfBirth || "");
+            setIsAlive(isSpouse ? member.spouseIsAlive !== undefined ? member.spouseIsAlive : true : member.isAlive !== undefined ? member.isAlive : true);
+            setDateOfDeath(isSpouse ? member.spouseDateOfDeath || "" : member.dateOfDeath || "");
+            setPlaceOfCremation(isSpouse ? member.spousePlaceOfCremation || "" : member.placeOfCremation || "");
+        }
+    }, [member, isSpouse]);
+
+    const handleSave = () => {
+        onSave(member.id, { story, dob, placeOfBirth, isAlive, dateOfDeath, placeOfCremation }, isSpouse);
+    };
+
+    const personName = isSpouse ? member?.spouseName : member?.name;
+    if (!member) return null;
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Edit Story for ${personName}`}>
+            <div className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+                    <input
+                        type="date"
+                        value={dob}
+                        onChange={(e) => setDob(e.target.value)}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Place of Birth</label>
+                    <input
+                        type="text"
+                        value={placeOfBirth}
+                        onChange={(e) => setPlaceOfBirth(e.target.value)}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                    />
+                </div>
+                <div className="flex items-center space-x-2">
+                    <input
+                        type="checkbox"
+                        id="isAlive"
+                        checked={isAlive}
+                        onChange={(e) => setIsAlive(e.target.checked)}
+                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    />
+                    <label htmlFor="isAlive" className="text-sm font-medium text-gray-700">Is Alive?</label>
+                </div>
+                {!isAlive && (
+                    <>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Date of Death</label>
+                            <input
+                                type="date"
+                                value={dateOfDeath}
+                                onChange={(e) => setDateOfDeath(e.target.value)}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Place of Cremation/Burial</label>
+                            <input
+                                type="text"
+                                value={placeOfCremation}
+                                onChange={(e) => setPlaceOfCremation(e.target.value)}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                placeholder="e.g., Green Lawn Cemetery"
+                            />
+                        </div>
+                    </>
+                )}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Story</label>
+                    <textarea
+                        value={story}
+                        onChange={(e) => setStory(e.target.value)}
+                        rows="4"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                        placeholder="Add a personal story or a memorable fact..."
+                    ></textarea>
+                </div>
+            </div>
+            <div className="mt-4 flex justify-end space-x-2">
+                <button onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors text-sm">
+                    Cancel
+                </button>
+                <button onClick={handleSave} className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm">
+                    Save
+                </button>
+            </div>
+        </Modal>
+    );
+};
+  
+// Recursive component to render each node in the tree.
+function TreeNode({ member, onAdd, onRemove, onNameChange, onLastNameChange, onSpouseNameChange, onSpouseLastNameChange, onStoryChange, onOpenStoryModal, onToggleExpand, onToggleCarousel, onSetActiveIndex, getGenerationColor, searchTerm, nodeRefs, familyData }) {
+    const [isNameEditing, setIsNameEditing] = useState(false);
+    const [isLastNameEditing, setIsLastNameEditing] = useState(false);
+    const [isSpouseNameEditing, setIsSpouseNameEditing] = useState(false);
+    const [isSpouseLastNameEditing, setIsSpouseLastNameEditing] = useState(false);
+    const childrenWrapperRef = useRef(null);
+    
+    const handlePrevChild = () => {
+        onSetActiveIndex(member.id, Math.max(0, (member.activeIndex || 0) - 1));
+    };
+
+    const handleNextChild = () => {
+        const children = familyData.filter(child => child.reportsTo === member.id);
+        onSetActiveIndex(member.id, Math.min(children.length - 1, (member.activeIndex || 0) + 1));
+    };
+
+    const [editedName, setEditedName] = useState(member.name);
+    const [editedLastName, setEditedLastName] = useState(member.lastName);
+    const [editedSpouseName, setEditedSpouseName] = useState(member.spouseName);
+    const [editedSpouseLastName, setEditedSpouseLastName] = useState(member.spouseLastName);
+    
+    useEffect(() => {
+      setEditedName(member.name);
+      setEditedLastName(member.lastName);
+      setEditedSpouseName(member.spouseName);
+      setEditedSpouseLastName(member.spouseLastName);
+    }, [member.name, member.lastName, member.spouseName, member.spouseLastName]);
+    
+    const nameInputRef = useRef(null);
+    const lastNameInputRef = useRef(null);
+    const spouseNameInputRef = useRef(null);
+    const spouseLastNameInputRef = useRef(null);
+
+    useEffect(() => {
+        if (isNameEditing && nameInputRef.current) {
+            nameInputRef.current.focus();
+        }
+    }, [isNameEditing]);
+
+    useEffect(() => {
+        if (isLastNameEditing && lastNameInputRef.current) {
+            lastNameInputRef.current.focus();
+        }
+    }, [isLastNameEditing]);
+
+    useEffect(() => {
+        if (isSpouseNameEditing && spouseNameInputRef.current) {
+            spouseNameInputRef.current.focus();
+        }
+    }, [isSpouseNameEditing]);
+
+    useEffect(() => {
+        if (isSpouseLastNameEditing && spouseLastNameInputRef.current) {
+            spouseLastNameInputRef.current.focus();
+        }
+    }, [isSpouseLastNameEditing]);
+
+    const getGenderBoxColor = (gender) => {
+        if (gender === 'male') {
+            return 'bg-sky-200';
+        } else if (gender === 'female') {
+            return 'bg-pink-200';
+        }
+        return 'bg-gray-200';
+    };
+    
+    const getSpouseColorClasses = (gender) => {
+        if (gender === 'male') {
+            return 'bg-pink-200 text-pink-800';
+        } else if (gender === 'female') {
+            return 'bg-blue-200 text-blue-800';
+        }
+        return 'bg-gray-200 text-gray-800';
+    };
+    
+    const getSpouseIconColor = (gender) => {
+        if (gender === 'male') {
+            return 'pink';
+        } else if (gender === 'female') {
+            return 'blue';
+        }
+        return 'gray';
+    };
+
+    const getChildNameColor = (member, familyData) => {
+        if (!member.reportsTo) return `text-gray-800`;
+        const parent = familyData.find(m => m.id === member.reportsTo);
+        if (!parent) return `text-gray-800`;
+        return parent.gender === 'male' ? `text-pink-800` : `text-blue-800`;
+    };
+
+    const handleNameBlur = (e) => {
+        onNameChange(member.id, editedName);
+        setIsNameEditing(false);
+    };
+
+    const handleLastNameBlur = (e) => {
+        onLastNameChange(member.id, editedLastName);
+        setIsLastNameEditing(false);
+    };
+
+    const handleSpouseNameBlur = (e) => {
+        onSpouseNameChange(member.id, editedSpouseName);
+        setIsSpouseNameEditing(false);
+    };
+
+    const handleSpouseLastNameBlur = (e) => {
+        onSpouseLastNameChange(member.id, editedSpouseLastName);
+        setIsSpouseLastNameEditing(false);
+    };
+
+    const handleAddSpouse = (parentId) => {
+        const parent = familyData.find(m => m.id === parentId);
+        if (!parent) return;
+        const parentLastName = parent?.lastName;
+        let newSpouseLastName = "";
+
+        if (parent.gender === 'female') {
+            newSpouseLastName = parentLastName;
         }
 
-        // Render the App component
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-    </script>
-</body>
-</html>
+        onSpouseNameChange(parentId, "New Spouse");
+        onSpouseLastNameChange(parentId, newSpouseLastName);
+    };
+
+    const handleRemoveSpouse = (id) => {
+        onSpouseNameChange(id, '');
+        onSpouseLastNameChange(id, '');
+    };
+    
+    const hasSpouse = !!member.isMarried;
+    const hasChildren = member.children && member.children.length > 0;
+    const children = member.children || [];
+    
+    const isCarouselMode = member.isCarouselMode;
+    const activeIndex = member.activeIndex || 0;
+    const displayedChild = hasChildren ? children[activeIndex] : null;
+    const showPrevButton = activeIndex > 0;
+    const showNextButton = activeIndex < children.length - 1;
+
+    const isHighlighted = searchTerm && (member.name.toLowerCase().includes(searchTerm.toLowerCase()) || (member.lastName && member.lastName.toLowerCase().includes(searchTerm.toLowerCase())) || (member.spouseName && member.spouseName.toLowerCase().includes(searchTerm.toLowerCase())) || (member.spouseLastName && member.spouseLastName.toLowerCase().includes(searchTerm.toLowerCase())));
+
+    const childNodes = useMemo(() => (
+        children.map((child, index) => {
+            const isVisibleInCarousel = !isCarouselMode || index === activeIndex;
+            if (!isVisibleInCarousel) return null;
+            
+            return (
+                <TreeNode
+                    key={child.id}
+                    member={child}
+                    onAdd={onAdd}
+                    onRemove={onRemove}
+                    onNameChange={onNameChange}
+                    onLastNameChange={onLastNameChange}
+                    onSpouseNameChange={onSpouseNameChange}
+                    onSpouseLastNameChange={onSpouseLastNameChange}
+                    onStoryChange={onStoryChange}
+                    onOpenStoryModal={onOpenStoryModal}
+                    onToggleExpand={onToggleExpand}
+                    onToggleCarousel={onToggleCarousel}
+                    onSetActiveIndex={onSetActiveIndex}
+                    getGenerationColor={getGenerationColor}
+                    searchTerm={searchTerm}
+                    nodeRefs={nodeRefs}
+                    familyData={familyData}
+                />
+            );
+        })
+    ), [children, isCarouselMode, activeIndex, onAdd, onRemove, onNameChange, onLastNameChange, onSpouseNameChange, onSpouseLastNameChange, onStoryChange, onOpenStoryModal, onToggleExpand, onToggleCarousel, onSetActiveIndex, getGenerationColor, searchTerm, nodeRefs, familyData]);
+    
+    return (
+        <div className={`relative flex flex-col items-start p-2 rounded-xl mb-4`} style={{ backgroundColor: `#${getGenerationColor(member.generation, familyData)}1A` }}>
+            <div className="p-1 rounded-xl shadow-md border-2 border-gray-300 bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-xl w-40 sm:w-48 mx-auto flex flex-col">
+                <div className={`p-0.5 w-full rounded-t-lg text-white font-bold text-[9px] flex items-center justify-center`} style={{ backgroundColor: `#${getGenerationColor(member.generation, familyData)}` }}>
+                    G{member.generation}
+                </div>
+                <div className="flex justify-start items-start h-full flex-col p-1">
+                    {/* Main Member Card */}
+                    <div
+                        className={`relative rounded-lg shadow-sm border-2 border-gray-300 w-full mb-1 text-center ${getGenderBoxColor(member.gender)} ${isHighlighted ? 'ring-4 ring-offset-2 ring-yellow-400' : ''}`}
+                        ref={el => nodeRefs.current[member.id] = el}
+                        data-id={member.id}
+                    >
+                        <div className="relative flex items-center w-full">
+                            {isNameEditing ? (
+                                <input
+                                    type="text"
+                                    ref={nameInputRef}
+                                    className={`flex-grow text-xs font-semibold p-0.5 text-center focus:outline-none ${getChildNameColor(member, familyData)}`}
+                                    value={editedName}
+                                    onChange={(e) => setEditedName(e.target.value)}
+                                    onBlur={handleNameBlur}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                                />
+                            ) : (
+                                <span onClick={(e) => {e.stopPropagation(); setIsNameEditing(true);}} className={`flex-grow text-xs font-semibold p-0.5 text-center cursor-pointer ${getChildNameColor(member, familyData)}`}>
+                                    {member.name || "Click to add name"}
+                                </span>
+                            )}
+                        </div>
+                        <div className="relative flex items-center w-full">
+                            {isLastNameEditing ? (
+                                <input
+                                    type="text"
+                                    ref={lastNameInputRef}
+                                    className={`flex-grow text-[10px] p-0.5 text-center focus:outline-none ${getChildNameColor(member, familyData)}`}
+                                    value={editedLastName}
+                                    onChange={(e) => setEditedLastName(e.target.value)}
+                                    onBlur={handleLastNameBlur}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                                />
+                            ) : (
+                                <span onClick={(e) => {e.stopPropagation(); setIsLastNameEditing(true);}} className={`flex-grow text-[10px] p-0.5 text-center cursor-pointer ${getChildNameColor(member, familyData)}`}>
+                                    {member.lastName || "Click to add last name"}
+                                </span>
+                            )}
+                            {!isNameEditing && (
+                                    <button
+                                        onClick={() => onOpenStoryModal(member, false)}
+                                        className="absolute -top-1 -right-1 p-1 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors"
+                                        aria-label="Add story"
+                                    >
+                                        {member.isAlive ? (
+                                            <EditIcon size={12} hasContent={!!member.story || !!member.dob || !!member.placeOfBirth || !!member.dateOfDeath} color="blue" />
+                                        ) : (
+                                            <TombstoneIcon size={12} hasContent={!!member.story || !!member.dob || !!member.placeOfBirth || !!member.dateOfDeath} color="red" />
+                                        )}
+                                    </button>
+                            )}
+                        </div>
+                        {hasSpouse && (
+                            <>
+                                <div className="border-b-2 border-gray-300 mx-1"></div>
+                                <div className="relative flex items-center w-full">
+                                    {isSpouseNameEditing ? (
+                                        <input
+                                            type="text"
+                                            ref={spouseNameInputRef}
+                                            className={`flex-grow text-[9px] font-semibold p-0.5 text-center focus:outline-none ${getSpouseColorClasses(member.gender)}`}
+                                            value={editedSpouseName}
+                                            onChange={(e) => setEditedSpouseName(e.target.value)}
+                                            onBlur={handleSpouseNameBlur}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                                        />
+                                    ) : (
+                                        <span onClick={(e) => {e.stopPropagation(); setIsSpouseNameEditing(true);}} className={`flex-grow text-xs font-semibold p-0.5 text-center cursor-pointer ${getSpouseColorClasses(member.gender)}`}>
+                                            {member.spouseName}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="relative flex items-center w-full">
+                                    {isSpouseLastNameEditing ? (
+                                        <input
+                                            type="text"
+                                            ref={spouseLastNameInputRef}
+                                            className={`flex-grow text-[9px] p-0.5 text-center focus:outline-none ${getSpouseColorClasses(member.gender)}`}
+                                            value={editedSpouseLastName}
+                                            onChange={(e) => setEditedSpouseLastName(e.target.value)}
+                                            onBlur={handleSpouseLastNameBlur}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                                        />
+                                    ) : (
+                                        <span onClick={(e) => {e.stopPropagation(); setIsSpouseLastNameEditing(true);}} className={`flex-grow text-[9px] p-0.5 text-center cursor-pointer ${getSpouseColorClasses(member.gender)}`}>
+                                            {member.spouseLastName}
+                                        </span>
+                                    )}
+                                    <button
+                                        onClick={() => handleRemoveSpouse(member.id)}
+                                        className="p-1 text-red-500 rounded-full hover:bg-red-100 transition-colors absolute right-1"
+                                        aria-label="Remove spouse"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                    {!isSpouseNameEditing && (
+                                        <button
+                                            onClick={() => onOpenStoryModal(member, true)}
+                                            className="absolute -top-1 -left-1 p-1 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors"
+                                            aria-label="Add spouse story"
+                                        >
+                                            {member.spouseIsAlive ? (
+                                                <SpouseEditIcon size={12} hasContent={!!member.spouseStory || !!member.spouseDob || !!member.spousePlaceOfBirth || !!member.spouseDateOfDeath} color={getSpouseIconColor(member.gender)} />
+                                            ) : (
+                                                <TombstoneIcon size={12} hasContent={!!member.spouseStory || !!member.spouseDob || !!member.spousePlaceOfBirth || !!member.spouseDateOfDeath} color="red" />
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    
+                    {/* Add Spouse Button */}
+                    {!hasSpouse && (
+                        <button
+                            onClick={(e) => {e.stopPropagation(); handleAddSpouse(member.id);}}
+                            className="w-full p-1 my-0.5 text-gray-500 rounded-full hover:bg-gray-200 transition-colors"
+                            aria-label="Add spouse"
+                        >
+                            <Heart size={14} />
+                        </button>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="no-print flex justify-between w-full mt-1">
+                        <button
+                            onClick={() => onAdd(member.id, "", "male")}
+                            className="flex-1 mx-0.5 p-1 text-gray-500 rounded-full hover:bg-gray-200 transition-colors"
+                            aria-label="Add son"
+                        >
+                            <Male size={14} />
+                        </button>
+                        <button
+                            onClick={() => onAdd(member.id, "", "female")}
+                            className="flex-1 mx-0.5 p-1 text-gray-500 rounded-full hover:bg-gray-200 transition-colors"
+                            aria-label="Add daughter"
+                        >
+                            <Female size={14} />
+                        </button>
+                        {member.reportsTo !== null && (
+                            <button
+                                onClick={() => onRemove(member.id)}
+                                className="flex-1 mx-0.5 p-1 text-red-500 rounded-full hover:bg-red-100 transition-colors"
+                                aria-label="Remove member"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+                {hasChildren && (
+                    <div className="no-print flex items-center justify-between w-full mt-1 px-1">
+                        {member.isExpanded && children.length > 1 && isCarouselMode && (
+                            <button
+                                onClick={handlePrevChild} 
+                                className={`p-1 text-gray-500 rounded-full hover:bg-gray-200 transition-colors ${showPrevButton ? '' : 'invisible'}`}
+                                aria-label="Previous child"
+                            >
+                                <ChevronLeft size={16} />
+                            </button>
+                        )}
+                        {member.isExpanded && children.length > 1 && (
+                            <button
+                                onClick={() => onToggleCarousel(member.id)}
+                                className="p-1 bg-gray-200 text-gray-500 rounded-full shadow-lg hover:bg-gray-300 transition-colors"
+                                aria-label="Toggle carousel view"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="3" width="7" height="7" />
+                                    <rect x="14" y="3" width="7" height="7" />
+                                    <rect x="14" y="14" width="7" height="7" />
+                                    <rect x="3" y="14" width="7" height="7" />
+                                </svg>
+                            </button>
+                        )}
+                        <button
+                            onClick={(e) => {e.stopPropagation(); onToggleExpand(member.id)}}
+                            className="p-1 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+                            aria-label={member.isExpanded ? 'Collapse' : 'Expand'}
+                        >
+                            {member.isExpanded ? <Minus size={14} /> : <Plus size={14} />}
+                        </button>
+                        {member.isExpanded && children.length > 1 && isCarouselMode && (
+                            <button
+                                onClick={handleNextChild}
+                                className={`p-1 text-gray-500 rounded-full hover:bg-gray-200 transition-colors ${showNextButton ? '' : 'invisible'}`}
+                                aria-label="Next child"
+                            >
+                                <ChevronRight size={16} />
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {member.isExpanded && hasChildren && (
+                <div
+                    className={`children-container relative flex items-start justify-start gap-1 pt-6 max-w-full ${isCarouselMode ? 'flex-nowrap' : 'flex-wrap'}`}
+                    data-parent-id={member.id}
+                >
+                    <div ref={childrenWrapperRef} className={`relative flex gap-1 ${isCarouselMode ? 'flex-nowrap overflow-x-auto no-scrollbar' : 'flex-wrap'} justify-center w-full max-w-full`}>
+                        {children.map((child, index) => {
+                            const isVisibleInCarousel = !isCarouselMode || index === activeIndex;
+                            if (!isVisibleInCarousel) return null;
+
+                            return (
+                                <TreeNode
+                                    key={child.id}
+                                    member={child}
+                                    onAdd={onAdd}
+                                    onRemove={onRemove}
+                                    onNameChange={onNameChange}
+                                    onLastNameChange={onLastNameChange}
+                                    onSpouseNameChange={onSpouseNameChange}
+                                    onSpouseLastNameChange={onSpouseLastNameChange}
+                                    onStoryChange={onStoryChange}
+                                    onOpenStoryModal={onOpenStoryModal}
+                                    onToggleExpand={onToggleExpand}
+                                    onToggleCarousel={onToggleCarousel}
+                                    onSetActiveIndex={onSetActiveIndex}
+                                    getGenerationColor={getGenerationColor}
+                                    searchTerm={searchTerm}
+                                    nodeRefs={nodeRefs}
+                                    familyData={familyData}
+                                />
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// Render the App component
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+
+// Added some simple styling
+// to handle the message box and remove scrollbars
+// for the carousel
